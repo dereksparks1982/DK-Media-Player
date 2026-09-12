@@ -16,7 +16,9 @@ cp -a "$ROOT/src/dkmedia" "$PKGROOT/usr/lib/dkmedia-original/src/"
 find "$PKGROOT" -type d -name __pycache__ -prune -exec rm -rf {} +
 find "$PKGROOT" -name '*.pyc' -delete
 cp "$ROOT/README.md" "$ROOT/PUBLIC_RELEASE_NOTES.md" "$ROOT/THIRD_PARTY_NOTICES.md" "$PKGROOT/usr/share/doc/dkmedia-original/"
-gzip -9 -c "$ROOT/docs/changelogs/CHANGELOG.md" > "$PKGROOT/usr/share/doc/dkmedia-original/changelog.gz"
+if [[ -f "$ROOT/docs/changelogs/CHANGELOG.md" ]]; then
+    gzip -9 -c "$ROOT/docs/changelogs/CHANGELOG.md" > "$PKGROOT/usr/share/doc/dkmedia-original/changelog.gz"
+fi
 cp "$ROOT/LICENSE" "$PKGROOT/usr/share/doc/dkmedia-original/copyright"
 
 cat > "$PKGROOT/DEBIAN/control" <<CTRL
