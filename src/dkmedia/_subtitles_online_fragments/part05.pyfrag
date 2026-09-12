@@ -1,0 +1,68 @@
+        return self._search_with_parameters(parameters, language, intent, strict_episode=strict_episode)
+
+    def _search_tv_episode(self, intent: SearchIntent, language: str) -> list[OnlineSubtitle]:
+        if not intent.is_tv_episode:
+            return []
+        parameters = self._base_parameters(language)
+        parameters.update(
+            {
+                "film_name": intent.title,
+                "type": "tv",
+                "season_number": str(intent.season),
+                "episode_number": str(intent.episode),
+            }
+        )
+        return self._search_with_parameters(parameters, language, intent, strict_episode=True)
+
+    def search(self, query: str, language: str = "EN") -> list[OnlineSubtitle]:
+        cleaned = query.strip()
+        if not cleaned:
+            raise SubtitleProviderError("Enter a filename or title to search.")
+        intent = parse_search_intent(cleaned)
+        if intent.is_tv_episode:
+            tv_results = self._search_tv_episode(intent, language)
+            if tv_results:
+                return tv_results
+            filename_results = self._search_once("file_name", cleaned, language, intent, strict_episode=True)
+            if filename_results:
+                return filename_results
+            title = f"{intent.title} {intent.episode_token}".strip()
+            if title:
+                return self._search_once("film_name", title, language, intent, strict_episode=True)
+            return []
+        results = self._search_once("file_name", cleaned, language, intent)
+        if results:
+            return results
+        return self._search_once("film_name", Path(cleaned).stem or cleaned, language, intent)
+
+    def _download_bytes(self, url: str) -> bytes:
+        safe_url = _safe_download_url(url)
+        request = urllib.request.Request(safe_url, headers={"User-Agent": USER_AGENT})
+        try:
+            with self._opener(request, timeout=self.timeout) as response:
+                return _read_limited(response, MAX_DOWNLOAD_BYTES)
+        except (OSError, urllib.error.URLError, TimeoutError) as exc:
+            raise SubtitleProviderError(f"Could not download the subtitle: {exc}") from exc
+
+    def download_and_save(
+        self,
+        result: OnlineSubtitle,
+        media_path: str | Path,
+        cache_directory: str | Path,
+    ) -> Path:
+        media = Path(media_path).expanduser().resolve()
+        payload = self._download_bytes(result.url)
+        if result.is_archive or payload.startswith(b"PK\x03\x04"):
+            subtitle_data, archived_name = _extract_best_subtitle(payload, media)
+            suffix = _subtitle_suffix(archived_name, result.subtitle_format)
+        else:
+            subtitle_data = payload
+            suffix = _subtitle_suffix(result.name, result.subtitle_format)
+        if not subtitle_data:
+            raise SubtitleProviderError("The downloaded subtitle was empty.")
+        filename = _target_filename(media, result.language, suffix)
+        try:
+            return _atomic_write(media.parent, filename, subtitle_data)
+        except SubtitleProviderError:
+            cache = Path(cache_directory).expanduser()
+            return _atomic_write(cache, filename, subtitle_data)

@@ -1,0 +1,94 @@
+        tk.Checkbutton(frame, text="Audio only", variable=self.audio_only, bg=BODY, fg=WHITE, selectcolor=BODY, activebackground=BODY, activeforeground=WHITE).pack(anchor="w", padx=12, pady=6)
+        self._button(frame, "Download with yt-dlp", self._download).pack(anchor="w", padx=12)
+        self.download_log = tk.Text(frame, bg="#0b0b0f", fg=WHITE, height=20)
+        self.download_log.pack(fill="both", expand=True, padx=12, pady=12)
+
+    def _build_p2p_tab(self) -> None:
+        frame = self.p2p_tab
+        tk.Label(frame, text="Optional P2P add-on • magnet URI", bg=BODY, fg=WHITE).pack(anchor="w", padx=12, pady=(16, 4))
+        self.magnet_uri = tk.Entry(frame, bg="#292933", fg=WHITE, insertbackground=WHITE)
+        self.magnet_uri.pack(fill="x", padx=12)
+        self._button(frame, "Start P2P download", self._p2p_start).pack(anchor="w", padx=12, pady=8)
+        self.p2p_log = tk.Text(frame, bg="#0b0b0f", fg=WHITE, height=20)
+        self.p2p_log.pack(fill="both", expand=True, padx=12, pady=12)
+
+    def _ensure_controller(self) -> bool:
+        if self.controller:
+            return True
+        try:
+            self.controller = VLCMediaController(self._set_status)
+            self.controller.set_volume(self.volume.get())
+            return True
+        except VLCUnavailable as exc:
+            messagebox.showerror("DK Media", str(exc))
+            return False
+
+    def _choose_media(self) -> None:
+        path = choose_file_native(
+            title="Open media",
+            initial_dir=self.state_store.last_directory("last_media_dir"),
+            fallback=filedialog.askopenfilename,
+        )
+        if path:
+            self.state_store.remember_directory("last_media_dir", path)
+            self.open_media(path)
+
+    def open_media(self, path: str) -> None:
+        self._close_subtitle_browser()
+        if not self._ensure_controller():
+            return
+        try:
+            if self.current_file and self.controller:
+                self.state_store.remember(self.current_file, self.controller.get_time_ms())
+            self.video.update_idletasks()
+            self.controller.load(path, self.video.winfo_id(), autoplay=True)
+            self.current_file = str(Path(path).resolve())
+            self.last_resume_save_ms = -1
+            resume = self.state_store.resume_position(self.current_file)
+            if resume > 10_000:
+                self.after(1200, lambda: self.controller and self.controller.set_time_ms(resume))
+            self.state_store.remember(self.current_file)
+            self.controller.set_volume(self.volume.get())
+            self.after(1400, self._apply_saved_subtitle_preference)
+            self._refresh_library()
+            self.status.set(Path(path).name)
+            self._schedule_cursor_hide()
+        except Exception as exc:
+            messagebox.showerror("Unable to open media", str(exc))
+
+    def _show_subtitle_menu(self) -> None:
+        menu = tk.Menu(self, tearoff=False, bg=PANEL, fg=WHITE, activebackground=PURPLE, activeforeground=WHITE)
+        menu.add_command(label="On", command=self._subtitles_on)
+        menu.add_command(label="Off", command=self._subtitles_off)
+        english_tracks: list[tuple[int, str]] = []
+        if self.controller:
+            english_tracks = [
+                (track_id, name)
+                for track_id, name in self.controller.subtitle_tracks()
+                if track_id >= 0 and self._is_english_subtitle_name(name)
+            ]
+        if english_tracks:
+            menu.add_separator()
+            for track_id, name in english_tracks:
+                menu.add_command(label=f"English • {name}", command=lambda tid=track_id: self._select_subtitle_track(tid))
+        menu.add_separator()
+        menu.add_command(label="Find Subtitles Online…", command=self._open_online_subtitle_browser)
+        menu.add_command(label="Load Subtitle File…", command=self._choose_subtitle)
+        self.subtitle_menu = menu
+        menu.tk_popup(self.subtitle_button.winfo_rootx(), self.subtitle_button.winfo_rooty() + self.subtitle_button.winfo_height())
+
+    @staticmethod
+    def _is_english_subtitle_name(name: str) -> bool:
+        normalised = "".join(character.lower() if character.isalnum() else " " for character in name)
+        words = set(normalised.split())
+        return bool(words & {"en", "eng", "english"})
+
+    def _subtitles_on(self) -> None:
+        if self.current_file:
+            self.state_store.set_media_preference(self.current_file, "subtitle_mode", "auto")
+        self._apply_saved_subtitle_preference(force_auto=True)
+
+    def _subtitles_off(self) -> None:
+        if self.controller:
+            self.controller.set_subtitle_track(-1)
+        if self.current_file:

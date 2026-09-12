@@ -1,0 +1,125 @@
+            self.fullscreen = False
+            self.attributes("-fullscreen", False)
+            self._show_cursor()
+            return "break"
+        return None
+
+    def _double_fullscreen(self, _event=None) -> str:
+        self._toggle_fullscreen()
+        return "break"
+
+    def _set_video_cursor(self, cursor: str, hidden: bool) -> None:
+        """Change the native video-frame cursor only when its state changes.
+
+        Reconfiguring the embedded libVLC frame on every mouse-motion event can
+        provoke visible redraws on Linux. Motion now resets the timer without
+        touching the video widget unless the cursor actually changes state.
+        """
+        if self.video_cursor_hidden == hidden:
+            return
+        self.video_cursor_hidden = hidden
+        self.video.configure(cursor=cursor)
+
+    def _video_motion(self, _event=None) -> None:
+        if self.video_cursor_hidden:
+            self._set_video_cursor("arrow", hidden=False)
+        self._schedule_cursor_hide()
+
+    def _show_cursor(self, _event=None) -> None:
+        if self.cursor_hide_job:
+            self.after_cancel(self.cursor_hide_job)
+            self.cursor_hide_job = None
+        self._set_video_cursor("arrow", hidden=False)
+
+    def _schedule_cursor_hide(self) -> None:
+        if self.cursor_hide_job:
+            self.after_cancel(self.cursor_hide_job)
+        self.cursor_hide_job = self.after(3000, self._hide_cursor)
+
+    def _hide_cursor(self) -> None:
+        self.cursor_hide_job = None
+        self._set_video_cursor("none", hidden=True)
+
+    def _tick(self) -> None:
+        if self.controller:
+            current = self.controller.get_time_ms()
+            length = self.controller.get_length_ms()
+            self.time_label.configure(text=f"{fmt_ms(current)} / {fmt_ms(length)}")
+            if length > 0 and not self.dragging_timeline:
+                self.timeline.set(current / length * 1000.0)
+            if self.current_file and current >= 0 and abs(current - self.last_resume_save_ms) >= 5000:
+                self.state_store.remember(self.current_file, current)
+                self.last_resume_save_ms = current
+        self.after(500, self._tick)
+
+    def _refresh_library(self) -> None:
+        self.recent_list.delete(0, tk.END)
+        for item in self.state_store.data.get("recent", []):
+            self.recent_list.insert(tk.END, item)
+
+    def _open_recent(self, _event) -> None:
+        selected = self.recent_list.curselection()
+        if selected:
+            self.open_media(self.recent_list.get(selected[0]))
+
+    def _set_status(self, text: str) -> None:
+        self.status.set(text)
+
+    def _download(self) -> None:
+        url = self.download_url.get().strip()
+        if not url:
+            return
+        out = self.state_store.data["downloads"]
+
+        def run() -> None:
+            try:
+                code = ytdlp.download(url, out, self.audio_only.get(), lambda line: self.after(0, lambda: self._log_download(line)))
+                self.after(0, lambda: self._log_download(f"Finished with exit code {code}"))
+            except Exception as exc:
+                self.after(0, lambda: self._log_download(f"ERROR: {exc}"))
+
+        threading.Thread(target=run, daemon=True).start()
+
+    def _log_download(self, line: str) -> None:
+        self.download_log.insert(tk.END, line + "\n")
+        self.download_log.see(tk.END)
+
+    def _p2p_start(self) -> None:
+        uri = self.magnet_uri.get().strip()
+        if not uri.startswith("magnet:"):
+            messagebox.showwarning("P2P", "Enter a magnet URI.")
+            return
+        try:
+            process = p2p.add_magnet(uri, self.state_store.data["downloads"])
+        except Exception as exc:
+            messagebox.showerror("P2P", str(exc))
+            return
+
+        def read() -> None:
+            if process.stdout:
+                for line in process.stdout:
+                    self.after(0, lambda text=line.rstrip(): self._log_p2p(text))
+
+        threading.Thread(target=read, daemon=True).start()
+
+    def _log_p2p(self, line: str) -> None:
+        self.p2p_log.insert(tk.END, line + "\n")
+        self.p2p_log.see(tk.END)
+
+    def _close(self) -> None:
+        self._close_subtitle_browser()
+        if self.current_file and self.controller:
+            self.state_store.remember(self.current_file, self.controller.get_time_ms())
+            self.controller.release()
+        self.destroy()
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="DK Media Linux")
+    parser.add_argument("media", nargs="?", help="Media file to open")
+    args = parser.parse_args()
+    DKMediaApp(args.media).mainloop()
+
+
+if __name__ == "__main__":
+    main()

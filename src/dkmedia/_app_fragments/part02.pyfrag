@@ -1,0 +1,85 @@
+        self.video.bind("<MouseWheel>", self._mousewheel_volume)
+        self.video.bind("<Button-4>", lambda _e: self._adjust_volume(5))
+        self.video.bind("<Button-5>", lambda _e: self._adjust_volume(-5))
+        self.video.bind("<Motion>", self._video_motion)
+        self.video.bind("<Enter>", self._video_motion)
+        self.video.bind("<Leave>", self._show_cursor)
+
+        timeline_row = tk.Frame(self.player_tab, bg=PANEL)
+        timeline_row.pack(fill="x", padx=8, pady=(0, 1))
+        self.timeline = ttk.Scale(timeline_row, style="DK.Horizontal.TScale", from_=0, to=1000)
+        self.timeline.pack(side="left", fill="x", expand=True, padx=(8, 8), pady=6)
+        self.timeline.bind("<ButtonPress-1>", lambda _e: setattr(self, "dragging_timeline", True))
+        self.timeline.bind("<ButtonRelease-1>", self._timeline_released)
+        self.time_label = tk.Label(timeline_row, text="00:00:00 / 00:00:00", bg=PANEL, fg=WHITE)
+        self.time_label.pack(side="right", padx=(4, 10))
+
+        controls = tk.Frame(self.player_tab, bg=PANEL)
+        controls.pack(fill="x", padx=8, pady=(0, 8))
+        self._button(controls, "-10s", lambda: self._seek(-10)).pack(side="left", padx=4, pady=8)
+        self._button(controls, "Play / Pause", self._toggle).pack(side="left", padx=4)
+        self._button(controls, "+30s", lambda: self._seek(30)).pack(side="left", padx=4)
+        self._button(controls, "Previous Frame", self._previous_frame).pack(side="left", padx=4)
+        self._button(controls, "Next Frame", self._next_frame).pack(side="left", padx=4)
+        tk.Label(controls, text="Volume", bg=PANEL, fg=WHITE).pack(side="left", padx=(14, 2))
+        self.volume_scale = ttk.Scale(
+            controls, style="DK.Horizontal.TScale", from_=0, to=200,
+            variable=self.volume, command=self._volume_changed, length=120
+        )
+        self.volume_scale.pack(side="left", padx=6)
+        self.volume_label = tk.Label(controls, text=f"{self.volume.get()}%", bg=PANEL, fg=WHITE, width=5)
+        self.volume_label.pack(side="left")
+        self.speed_button = tk.Menubutton(
+            controls, textvariable=self.rate, bg=SILVER, fg=BLACK,
+            activebackground=PURPLE, activeforeground=WHITE,
+            relief="solid", bd=1, highlightthickness=1,
+            highlightbackground=WHITE, highlightcolor=WHITE,
+            padx=8, pady=4, cursor="hand2", takefocus=False,
+        )
+        speed_menu = tk.Menu(
+            self.speed_button, tearoff=False, bg=SILVER, fg=BLACK,
+            activebackground=PURPLE, activeforeground=WHITE,
+            selectcolor=PURPLE, bd=1, relief="solid",
+        )
+        for speed_value in ("0.5", "0.75", "1.0", "1.25", "1.5", "2.0"):
+            speed_menu.add_radiobutton(
+                label=speed_value, value=speed_value, variable=self.rate,
+                background=SILVER, foreground=BLACK,
+                activebackground=PURPLE, activeforeground=WHITE,
+                selectcolor=PURPLE,
+            )
+        self.speed_button.configure(menu=speed_menu)
+        self.speed_button.pack(side="right", padx=8)
+        tk.Label(controls, text="Speed", bg=PANEL, fg=WHITE).pack(side="right")
+        self.rate.trace_add("write", lambda *_: self._rate_changed())
+
+        self.recent_list = tk.Listbox(
+            self.library_tab, bg="#18181e", fg=WHITE, selectbackground=PURPLE,
+            selectforeground=WHITE, highlightbackground=SILVER
+        )
+        self.recent_list.pack(fill="both", expand=True, padx=12, pady=12)
+        self.recent_list.bind("<Double-Button-1>", self._open_recent)
+        self._refresh_library()
+
+        self._build_download_tab()
+        self._build_p2p_tab()
+        tk.Label(
+            self, text=f"DK Media v{__version__} • F11 fullscreen • Space pause/play • Mouse wheel volume",
+            anchor="w", bg="#0b0b0f", fg=MUTED
+        ).pack(fill="x")
+
+    def _button(self, parent, text, command):
+        return tk.Button(
+            parent, text=text, command=command, bg=PURPLE, fg=WHITE,
+            activebackground=PURPLE_ACTIVE, activeforeground=WHITE,
+            relief="solid", bd=1, highlightthickness=1,
+            highlightbackground=SILVER, highlightcolor=SILVER,
+            padx=10, pady=5, cursor="hand2"
+        )
+
+    def _build_download_tab(self) -> None:
+        frame = self.download_tab
+        tk.Label(frame, text="Public or account-authorized media URL", bg=BODY, fg=WHITE).pack(anchor="w", padx=12, pady=(16, 4))
+        self.download_url = tk.Entry(frame, bg="#292933", fg=WHITE, insertbackground=WHITE)
+        self.download_url.pack(fill="x", padx=12)
+        self.audio_only = tk.BooleanVar(value=False)

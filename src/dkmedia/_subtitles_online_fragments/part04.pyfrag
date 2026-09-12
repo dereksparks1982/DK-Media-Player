@@ -1,0 +1,87 @@
+            unpacked = item.get("unpack_files")
+            if isinstance(unpacked, list) and unpacked:
+                for child in unpacked:
+                    if not isinstance(child, dict) or not child.get("url"):
+                        continue
+                    metadata_match = _episode_metadata_matches(intent, child, item)
+                    text_match = _episode_text_matches(
+                        intent,
+                        child.get("name"),
+                        child.get("release_name"),
+                        item.get("name"),
+                        item.get("release_name"),
+                    )
+                    if strict_episode and metadata_match is False:
+                        continue
+                    if strict_episode and metadata_match is None and not text_match:
+                        continue
+                    name = str(child.get("name") or child.get("release_name") or "subtitle.srt")
+                    suffix = _subtitle_suffix(name, str(child.get("format") or "srt"))
+                    if suffix not in SUPPORTED_SUBTITLE_EXTENSIONS:
+                        continue
+                    release = str(child.get("release_name") or item.get("release_name") or name)
+                    result = OnlineSubtitle(
+                        provider="SubDL",
+                        release_name=release,
+                        language=str(child.get("language") or language).upper(),
+                        subtitle_format=suffix.lstrip("."),
+                        hearing_impaired=bool(child.get("hi", item.get("hi", False))),
+                        fps=str(child.get("fps") or item.get("fps") or ""),
+                        url=_safe_download_url(str(child["url"])),
+                        name=name,
+                        is_archive=False,
+                        season=_as_int(child.get("season")) or _as_int(item.get("season")),
+                        episode=_as_int(child.get("episode")) or _as_int(item.get("episode")),
+                    )
+                    results.append(
+                        OnlineSubtitle(
+                            **{**result.__dict__, "match_score": _match_score(intent, result, item.get("name"), item.get("release_name"))}
+                        )
+                    )
+                continue
+            if not item.get("url"):
+                continue
+            metadata_match = _episode_metadata_matches(intent, item)
+            text_match = _episode_text_matches(intent, item.get("name"), item.get("release_name"))
+            if strict_episode and metadata_match is False:
+                continue
+            if strict_episode and metadata_match is None and not text_match:
+                continue
+            name = str(item.get("name") or item.get("release_name") or "subtitle.zip")
+            result = OnlineSubtitle(
+                provider="SubDL",
+                release_name=str(item.get("release_name") or name),
+                language=str(item.get("language") or language).upper(),
+                subtitle_format=str(item.get("format") or "zip").lower(),
+                hearing_impaired=bool(item.get("hi", False)),
+                fps=str(item.get("fps") or ""),
+                url=_safe_download_url(str(item["url"])),
+                name=name,
+                is_archive=True,
+                season=_as_int(item.get("season")),
+                episode=_as_int(item.get("episode")),
+            )
+            results.append(OnlineSubtitle(**{**result.__dict__, "match_score": _match_score(intent, result)}))
+        deduplicated: dict[tuple[str, str], OnlineSubtitle] = {}
+        for result in results:
+            previous = deduplicated.get((result.url, result.name))
+            if previous is None or result.match_score > previous.match_score:
+                deduplicated[(result.url, result.name)] = result
+        return sorted(
+            deduplicated.values(),
+            key=lambda result: (
+                -result.match_score,
+                0 if result.subtitle_format == "srt" else 1,
+                result.hearing_impaired,
+                result.display_release.casefold(),
+            ),
+        )
+
+    def _search_with_parameters(self, parameters: dict[str, str], language: str, intent: SearchIntent, *, strict_episode: bool) -> list[OnlineSubtitle]:
+        data = self._request_json(parameters)
+        return self._collect_results(data, language, intent, strict_episode=strict_episode)
+
+    def _search_once(self, query_key: str, query: str, language: str, intent: SearchIntent | None = None, *, strict_episode: bool = False) -> list[OnlineSubtitle]:
+        intent = intent or parse_search_intent(query)
+        parameters = self._base_parameters(language)
+        parameters[query_key] = query

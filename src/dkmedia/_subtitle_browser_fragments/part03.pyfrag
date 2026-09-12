@@ -1,0 +1,128 @@
+                callback = self._events.get_nowait()
+            except queue.Empty:
+                break
+            try:
+                callback()
+            except tk.TclError:
+                if not self._closed:
+                    raise
+        if not self._closed:
+            self._event_job = self.after(50, self._drain_events)
+
+    def _language_code(self) -> str:
+        selected = self.language_name.get()
+        for name, code in LANGUAGES:
+            if name == selected:
+                return code
+        return "EN"
+
+    def _set_busy(self, busy: bool) -> None:
+        state = "disabled" if busy else "normal"
+        self.search_button.configure(state=state)
+        self.download_button.configure(state=state)
+
+    def clear_key(self) -> None:
+        self.on_save_key("")
+        if self.built_in_api_key:
+            self.api_key_var.set(self.built_in_api_key)
+            self.using_built_in_key = True
+            self.status_var.set("Saved custom key cleared; using built-in private SubDL key")
+        else:
+            self.api_key_var.set("")
+            self.status_var.set("Saved SubDL API key cleared")
+        self.api_key_entry.focus_set()
+
+    def search(self) -> None:
+        if self.searching or self.downloading:
+            return
+        key = self.api_key_var.get().strip()
+        query = self.query_var.get().strip()
+        if not key:
+            self.status_var.set("Enter your free SubDL API key first")
+            self.api_key_entry.focus_set()
+            return
+        if not query:
+            self.status_var.set("Enter a filename or title")
+            self.query_entry.focus_set()
+            return
+        self.on_save_key(key)
+        self.searching = True
+        self._set_busy(True)
+        self.status_var.set("Searching SubDL…")
+        client = SubDLClient(key)
+        language = self._language_code()
+
+        def run() -> None:
+            try:
+                results = client.search(query, language)
+            except Exception as exc:
+                self._post(lambda error=exc: self._search_failed(error))
+                return
+            self._post(lambda found=results: self._search_finished(found))
+
+        threading.Thread(target=run, daemon=True).start()
+
+    def _search_failed(self, exc: Exception) -> None:
+        self.searching = False
+        self._set_busy(False)
+        message = str(exc) if isinstance(exc, SubtitleProviderError) else f"Subtitle search failed: {exc}"
+        self.status_var.set(message)
+
+    def _search_finished(self, results: list[OnlineSubtitle]) -> None:
+        self.searching = False
+        self._set_busy(False)
+        self.results = results
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+        for index, result in enumerate(results):
+            self.tree.insert(
+                "",
+                "end",
+                iid=str(index),
+                values=(
+                    result.display_release,
+                    result.language,
+                    result.subtitle_format.upper(),
+                    "Yes" if result.hearing_impaired else "No",
+                    result.fps or "—",
+                ),
+            )
+        if results:
+            self.tree.selection_set("0")
+            self.tree.focus("0")
+            self.tree.see("0")
+            self.status_var.set(f"Found {len(results)} subtitle option{'s' if len(results) != 1 else ''}")
+        else:
+            self.status_var.set("No subtitles found for that search")
+
+    def download_selected(self) -> None:
+        if self.searching or self.downloading:
+            return
+        selection = self.tree.selection()
+        if not selection:
+            self.status_var.set("Select a subtitle result first")
+            return
+        index = int(selection[0])
+        if index < 0 or index >= len(self.results):
+            self.status_var.set("Select a valid subtitle result")
+            return
+        key = self.api_key_var.get().strip()
+        result = self.results[index]
+        self.downloading = True
+        self._set_busy(True)
+        self.status_var.set(f"Downloading {result.display_release}…")
+        client = SubDLClient(key)
+
+        def run() -> None:
+            try:
+                path = client.download_and_save(result, self.media_path, self.cache_directory)
+            except Exception as exc:
+                self._post(lambda error=exc: self._download_failed(error))
+                return
+            self._post(lambda saved_path=path: self._download_finished(saved_path))
+
+        threading.Thread(target=run, daemon=True).start()
+
+    def _download_failed(self, exc: Exception) -> None:
+        self.downloading = False
+        self._set_busy(False)

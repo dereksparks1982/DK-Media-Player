@@ -1,0 +1,32 @@
+        message = str(exc) if isinstance(exc, SubtitleProviderError) else f"Subtitle download failed: {exc}"
+        self.status_var.set(message)
+        messagebox.showerror("Online Subtitle", message, parent=self)
+
+    def _download_finished(self, path: Path) -> None:
+        self.downloading = False
+        self._set_busy(False)
+        if self.on_use(path):
+            self.status_var.set(f"Downloaded and loaded: {path.name}")
+            self.after(350, self.close)
+        else:
+            self.status_var.set("Downloaded, but libVLC did not accept the subtitle")
+            messagebox.showwarning(
+                "Online Subtitle",
+                f"The subtitle was saved at:\n{path}\n\nbut libVLC did not accept it.",
+                parent=self,
+            )
+
+    def close(self) -> None:
+        if self._closed:
+            return
+        self._closed = True
+        if self._event_job is not None:
+            try:
+                self.after_cancel(self._event_job)
+            except tk.TclError:
+                pass
+            self._event_job = None
+        try:
+            self.on_close_callback()
+        finally:
+            self.destroy()

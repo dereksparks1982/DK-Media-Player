@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=DK Media
+Comment=Original DK Media Linux player
+Exec=dkmedia %F
+Terminal=false
+Categories=AudioVideo;Player;
+Icon=video-x-generic
+MimeType=audio/*;video/*;
+StartupNotify=true

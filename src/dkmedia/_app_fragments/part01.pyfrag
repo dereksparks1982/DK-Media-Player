@@ -1,0 +1,118 @@
+from __future__ import annotations
+
+import argparse
+import threading
+import tkinter as tk
+from datetime import datetime
+from pathlib import Path
+from tkinter import filedialog, messagebox, ttk
+
+from . import __version__
+from .addons import p2p, ytdlp
+from .file_picker import choose_file_native
+from .library import MediaState
+from .paths import find_matching_subtitle
+from .player import VLCMediaController, VLCUnavailable
+from .private_defaults import BUILT_IN_SUBDL_API_KEY
+from .subtitle_browser import SubtitleSearchWindow
+
+BODY = "#111116"
+PANEL = "#1b1b22"
+INACTIVE_TAB = "#2b2b32"
+VIDEO = "#000000"
+PURPLE = "#5f329d"
+PURPLE_ACTIVE = "#7442b5"
+SILVER = "#bfc1c8"
+BLACK = "#000000"
+WHITE = "#ffffff"
+MUTED = "#b8b8c0"
+
+
+def fmt_ms(value: int) -> str:
+    seconds = max(0, value // 1000)
+    return f"{seconds // 3600:02d}:{(seconds % 3600) // 60:02d}:{seconds % 60:02d}"
+
+
+class DKMediaApp(tk.Tk):
+    def __init__(self, initial_media: str | None = None):
+        super().__init__()
+        self.title(f"DK Media Linux v{__version__}")
+        self.geometry("1180x780")
+        self.minsize(860, 580)
+        self.configure(bg=BODY)
+        self.state_store = MediaState()
+        self.controller: VLCMediaController | None = None
+        self.dragging_timeline = False
+        self.current_file: str | None = None
+        self.fullscreen = False
+        self.cursor_hide_job: str | None = None
+        self.video_cursor_hidden = False
+        self.last_resume_save_ms = -1
+        self.status = tk.StringVar(value="Ready")
+        self.volume = tk.IntVar(value=self.state_store.volume())
+        self.rate = tk.StringVar(value="1.0")
+        self.subtitle_menu: tk.Menu | None = None
+        self.subtitle_browser: SubtitleSearchWindow | None = None
+        self.online_subtitle_attempted_for: set[str] = set()
+        self._build_ui()
+        self.protocol("WM_DELETE_WINDOW", self._close)
+        self.bind_all("<space>", self._space_toggle)
+        self.bind_all("<F11>", self._fullscreen_key)
+        self.bind_all("<Escape>", self._escape_fullscreen)
+        self.bind_all("<Left>", lambda _e: self._seek(-10))
+        self.bind_all("<Right>", lambda _e: self._seek(30))
+        self.after(250, self._tick)
+        if initial_media:
+            self.after(500, lambda: self.open_media(initial_media))
+
+    def _build_ui(self) -> None:
+        style = ttk.Style(self)
+        style.theme_use("clam")
+        style.configure("DK.TNotebook", background=BODY, borderwidth=0)
+        style.configure(
+            "DK.TNotebook.Tab",
+            background=INACTIVE_TAB,
+            foreground=WHITE,
+            bordercolor=WHITE,
+            lightcolor=WHITE,
+            darkcolor=WHITE,
+            relief="solid",
+            padding=(16, 8),
+        )
+        style.map(
+            "DK.TNotebook.Tab",
+            background=[("selected", PURPLE)],
+            foreground=[("selected", WHITE)],
+            bordercolor=[("selected", SILVER)],
+            lightcolor=[("selected", SILVER)],
+            darkcolor=[("selected", SILVER)],
+        )
+        style.configure("DK.Horizontal.TScale", background=PANEL, troughcolor="#34343e", sliderlength=18)
+
+        notebook = ttk.Notebook(self, style="DK.TNotebook")
+        notebook.pack(fill="both", expand=True)
+
+        self.player_tab = tk.Frame(notebook, bg=BODY)
+        self.library_tab = tk.Frame(notebook, bg=BODY)
+        self.download_tab = tk.Frame(notebook, bg=BODY)
+        self.p2p_tab = tk.Frame(notebook, bg=BODY)
+        notebook.add(self.player_tab, text="Player")
+        notebook.add(self.library_tab, text="Library")
+        notebook.add(self.download_tab, text="yt-dlp")
+        notebook.add(self.p2p_tab, text="P2P")
+
+        toolbar = tk.Frame(self.player_tab, bg=PANEL)
+        toolbar.pack(fill="x")
+        self._button(toolbar, "Open File", self._choose_media).pack(side="left", padx=(8, 4), pady=7)
+        self.subtitle_button = self._button(toolbar, "Subtitles", self._show_subtitle_menu)
+        self.subtitle_button.pack(side="left", padx=4, pady=7)
+        self._button(toolbar, "Screenshot", self._snapshot).pack(side="left", padx=4, pady=7)
+        self._button(toolbar, "Fullscreen", self._toggle_fullscreen).pack(side="left", padx=4, pady=7)
+        tk.Label(toolbar, textvariable=self.status, bg=PANEL, fg=WHITE).pack(side="left", padx=16)
+
+        self.video = tk.Frame(self.player_tab, bg=VIDEO, highlightthickness=0, cursor="arrow")
+        self.video.pack(fill="both", expand=True, padx=8, pady=(8, 4))
+        self.video.bind("<Button-1>", lambda _e: self._toggle())
+        self.video.bind("<Button-3>", lambda _e: self._toggle())
+        self.video.bind("<Double-Button-1>", self._double_fullscreen)
+        self.video.bind("<Double-Button-3>", self._double_fullscreen)

@@ -1,0 +1,92 @@
+            self.state_store.set_media_preference(self.current_file, "subtitle_mode", "off")
+        self.status.set("Subtitles off")
+
+    def _select_subtitle_track(self, track_id: int) -> None:
+        if self.controller and self.controller.set_subtitle_track(track_id):
+            if self.current_file:
+                self.state_store.set_media_preference(self.current_file, "subtitle_mode", "track")
+                self.state_store.set_media_preference(self.current_file, "subtitle_track_id", int(track_id))
+            self.status.set("English subtitles on")
+
+    def _load_external_subtitle(self, subtitle_path: str | Path, *, remember_manual: bool) -> bool:
+        if not self.controller or not self.current_file:
+            return False
+        path = Path(subtitle_path).expanduser().resolve()
+        if not self.controller.add_subtitle(path):
+            return False
+        if remember_manual:
+            self.state_store.set_media_preference(self.current_file, "subtitle_mode", "external")
+            self.state_store.set_media_preference(self.current_file, "subtitle_external_path", str(path))
+        self.status.set(f"Subtitles on: {path.name}")
+        return True
+
+    def _apply_saved_subtitle_preference(self, force_auto: bool = False) -> None:
+        if not self.controller or not self.current_file:
+            self.status.set("Subtitles will turn on automatically")
+            return
+        mode = "auto" if force_auto else self.state_store.media_preference(self.current_file, "subtitle_mode", "auto")
+        if mode == "off":
+            self.controller.set_subtitle_track(-1)
+            return
+        if mode == "external":
+            saved_path = self.state_store.media_preference(self.current_file, "subtitle_external_path", None)
+            if saved_path and Path(str(saved_path)).expanduser().is_file():
+                if self._load_external_subtitle(str(saved_path), remember_manual=False):
+                    return
+        if mode == "track":
+            track_id = self.state_store.media_preference(self.current_file, "subtitle_track_id", None)
+            if track_id is not None and self.controller.set_subtitle_track(int(track_id)):
+                self.status.set("English subtitles on")
+                return
+        matching_subtitle = find_matching_subtitle(self.current_file)
+        if matching_subtitle and self._load_external_subtitle(matching_subtitle, remember_manual=False):
+            return
+        for track_id, name in self.controller.subtitle_tracks():
+            if track_id >= 0 and self._is_english_subtitle_name(name):
+                if self.controller.set_subtitle_track(track_id):
+                    self.status.set("English subtitles on")
+                    return
+        self.controller.set_subtitle_track(-1)
+        self.status.set("Subtitles on • no local or embedded match")
+        self._maybe_search_online_subtitles()
+
+    def _saved_subdl_key(self) -> str:
+        setting = getattr(self.state_store, "setting", None)
+        if not callable(setting):
+            return BUILT_IN_SUBDL_API_KEY.strip()
+        saved_key = str(setting("subdl_api_key", "") or "").strip()
+        return saved_key or BUILT_IN_SUBDL_API_KEY.strip()
+
+    def _using_built_in_subdl_key(self) -> bool:
+        setting = getattr(self.state_store, "setting", None)
+        if not callable(setting):
+            return bool(BUILT_IN_SUBDL_API_KEY.strip())
+        return not str(setting("subdl_api_key", "") or "").strip() and bool(BUILT_IN_SUBDL_API_KEY.strip())
+
+    def _save_subdl_key(self, api_key: str) -> None:
+        setter = getattr(self.state_store, "set_setting", None)
+        if callable(setter):
+            setter("subdl_api_key", api_key.strip())
+
+    def _subtitle_cache_directory(self) -> Path:
+        getter = getattr(self.state_store, "subtitle_cache_directory", None)
+        if callable(getter):
+            return Path(getter())
+        return Path.home() / ".local" / "share" / "dkmedia" / "subtitles"
+
+    def _maybe_search_online_subtitles(self) -> None:
+        if not self.current_file or not self._saved_subdl_key():
+            self.status.set("Subtitles on • no local match • Find Subtitles Online…")
+            return
+        attempted = getattr(self, "online_subtitle_attempted_for", None)
+        if attempted is None:
+            attempted = set()
+            self.online_subtitle_attempted_for = attempted
+        if self.current_file in attempted:
+            return
+        attempted.add(self.current_file)
+        self.status.set("No local subtitle • searching SubDL…")
+        self._open_online_subtitle_browser(auto_search=True)
+
+    def _open_online_subtitle_browser(self, auto_search: bool = False) -> None:
+        if not self.current_file or not self.controller:

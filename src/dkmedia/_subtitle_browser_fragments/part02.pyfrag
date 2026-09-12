@@ -1,0 +1,116 @@
+        tk.Label(form, text="Language", bg=BODY, fg=WHITE).grid(row=0, column=2, sticky="w", pady=(0, 4))
+        language_button = tk.Menubutton(
+            form,
+            textvariable=self.language_name,
+            bg=SILVER,
+            fg=BLACK,
+            activebackground=PURPLE,
+            activeforeground=WHITE,
+            relief="solid",
+            bd=1,
+            highlightthickness=1,
+            highlightbackground=WHITE,
+            padx=10,
+            pady=4,
+            cursor="hand2",
+        )
+        language_menu = tk.Menu(
+            language_button,
+            tearoff=False,
+            bg=SILVER,
+            fg=BLACK,
+            activebackground=PURPLE,
+            activeforeground=WHITE,
+            selectcolor=PURPLE,
+        )
+        for name, _code in LANGUAGES:
+            language_menu.add_radiobutton(
+                label=name,
+                value=name,
+                variable=self.language_name,
+                background=SILVER,
+                foreground=BLACK,
+                activebackground=PURPLE,
+                activeforeground=WHITE,
+                selectcolor=PURPLE,
+            )
+        language_button.configure(menu=language_menu)
+        language_button.grid(row=1, column=2, sticky="ew")
+
+        tk.Label(form, text="Filename or title", bg=BODY, fg=WHITE).grid(row=2, column=0, columnspan=3, sticky="w", pady=(12, 4))
+        self.query_entry = self._entry(form, self.query_var)
+        self.query_entry.grid(row=3, column=0, columnspan=2, sticky="ew", padx=(0, 8))
+        self.query_entry.bind("<Return>", lambda _event: self.search())
+        self.search_button = self._button(form, "Search", self.search)
+        self.search_button.grid(row=3, column=2, sticky="ew")
+        form.columnconfigure(0, weight=1)
+
+        style = ttk.Style(self)
+        style.configure(
+            "DK.Subtitle.Treeview",
+            background="#18181e",
+            fieldbackground="#18181e",
+            foreground=WHITE,
+            rowheight=27,
+            bordercolor=SILVER,
+            lightcolor=SILVER,
+            darkcolor=SILVER,
+        )
+        style.map(
+            "DK.Subtitle.Treeview",
+            background=[("selected", PURPLE)],
+            foreground=[("selected", WHITE)],
+        )
+        style.configure(
+            "DK.Subtitle.Treeview.Heading",
+            background=INACTIVE,
+            foreground=WHITE,
+            relief="solid",
+            bordercolor=WHITE,
+            lightcolor=WHITE,
+            darkcolor=WHITE,
+        )
+        style.map(
+            "DK.Subtitle.Treeview.Heading",
+            background=[("active", PURPLE)],
+            foreground=[("active", WHITE)],
+        )
+
+        results_frame = tk.Frame(self, bg=BODY)
+        results_frame.pack(fill="both", expand=True, padx=12, pady=(0, 8))
+        columns = ("release", "language", "format", "hi", "fps")
+        self.tree = ttk.Treeview(results_frame, columns=columns, show="headings", style="DK.Subtitle.Treeview", selectmode="browse")
+        self.tree.heading("release", text="Release / Match")
+        self.tree.heading("language", text="Language")
+        self.tree.heading("format", text="Format")
+        self.tree.heading("hi", text="HI")
+        self.tree.heading("fps", text="FPS")
+        self.tree.column("release", width=520, anchor="w")
+        self.tree.column("language", width=90, anchor="center")
+        self.tree.column("format", width=80, anchor="center")
+        self.tree.column("hi", width=55, anchor="center")
+        self.tree.column("fps", width=70, anchor="center")
+        scrollbar = ttk.Scrollbar(results_frame, orient="vertical", command=self.tree.yview)
+        self.tree.configure(yscrollcommand=scrollbar.set)
+        self.tree.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        self.tree.bind("<Double-Button-1>", lambda _event: self.download_selected())
+
+        footer = tk.Frame(self, bg=PANEL)
+        footer.pack(fill="x")
+        tk.Label(footer, textvariable=self.status_var, bg=PANEL, fg=WHITE, anchor="w").pack(side="left", fill="x", expand=True, padx=12, pady=10)
+        self.download_button = self._button(footer, "Download and Use", self.download_selected)
+        self.download_button.pack(side="right", padx=(4, 8), pady=7)
+        self._button(footer, "Close", self.close).pack(side="right", padx=4, pady=7)
+
+    def _post(self, callback: Callable[[], None]) -> None:
+        """Queue a worker result for the Tk main thread without touching Tk from the worker."""
+        if not self._closed:
+            self._events.put(callback)
+
+    def _drain_events(self) -> None:
+        self._event_job = None
+        if self._closed:
+            return
+        while True:
+            try:

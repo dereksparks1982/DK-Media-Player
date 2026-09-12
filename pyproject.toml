@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dkmedia"
+version = "0.1.11"
+description = "Linux-first DK Media player with EXT drive browser and double-click launcher"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "GPL-3.0-or-later"}
+dependencies = ["python-vlc>=3.0.20123"]
+
+[project.scripts]
+dkmedia = "dkmedia.app:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

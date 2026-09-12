@@ -1,0 +1,153 @@
+from __future__ import annotations
+
+import io
+import json
+import os
+import re
+import tempfile
+import urllib.error
+import urllib.parse
+import urllib.request
+import zipfile
+from dataclasses import dataclass
+from pathlib import Path
+from typing import BinaryIO, Callable
+
+SUBDL_API_ENDPOINT = "https://api.subdl.com/api/v1/subtitles"
+SUBDL_DOWNLOAD_HOST = "dl.subdl.com"
+SUBDL_DOWNLOAD_PREFIX = "https://dl.subdl.com"
+USER_AGENT = "DKMedia/0.1.10"
+SUPPORTED_SUBTITLE_EXTENSIONS = {".srt", ".ass", ".ssa", ".sub", ".vtt"}
+MAX_SEARCH_RESPONSE_BYTES = 5 * 1024 * 1024
+MAX_DOWNLOAD_BYTES = 25 * 1024 * 1024
+MAX_EXTRACTED_SUBTITLE_BYTES = 10 * 1024 * 1024
+SXXEYY_RE = re.compile(r"(?i)(?P<title>.*?)[ ._\-\[]*s(?P<season>\d{1,2})[ ._\-\]]*e(?P<episode>\d{1,3})(?P<rest>.*)")
+X_EP_RE = re.compile(r"(?i)(?P<title>.*?)[ ._\-\[]*(?P<season>\d{1,2})x(?P<episode>\d{1,3})(?P<rest>.*)")
+SEASON_EPISODE_RE = re.compile(
+    r"(?i)(?P<title>.*?)(?:season|series)[ ._\-]*(?P<season>\d{1,2})[ ._\-]*(?:episode|ep)[ ._\-]*(?P<episode>\d{1,3})(?P<rest>.*)"
+)
+
+
+class SubtitleProviderError(RuntimeError):
+    """A recoverable online subtitle provider failure."""
+
+
+@dataclass(frozen=True)
+class OnlineSubtitle:
+    provider: str
+    release_name: str
+    language: str
+    subtitle_format: str
+    hearing_impaired: bool
+    fps: str
+    url: str
+    name: str
+    is_archive: bool
+    season: int | None = None
+    episode: int | None = None
+    match_score: int = 0
+
+    @property
+    def display_release(self) -> str:
+        return self.release_name or self.name or "Unnamed subtitle"
+
+
+@dataclass(frozen=True)
+class SearchIntent:
+    raw_query: str
+    stem: str
+    title: str
+    season: int | None = None
+    episode: int | None = None
+    episode_title: str = ""
+
+    @property
+    def is_tv_episode(self) -> bool:
+        return self.season is not None and self.episode is not None and bool(self.title)
+
+    @property
+    def episode_token(self) -> str:
+        if self.season is None or self.episode is None:
+            return ""
+        return f"s{self.season:02d}e{self.episode:02d}"
+
+    @property
+    def alternate_episode_token(self) -> str:
+        if self.season is None or self.episode is None:
+            return ""
+        return f"{self.season}x{self.episode:02d}"
+
+
+def _read_limited(stream: BinaryIO, limit: int) -> bytes:
+    data = stream.read(limit + 1)
+    if len(data) > limit:
+        raise SubtitleProviderError("The subtitle provider response was unexpectedly large.")
+    return data
+
+
+def _normalise_language(language: str) -> str:
+    value = "".join(character for character in language.upper() if character.isalpha())
+    return value or "EN"
+
+
+def _safe_download_url(url: str) -> str:
+    candidate = url.strip()
+    if candidate.startswith("/"):
+        candidate = SUBDL_DOWNLOAD_PREFIX + candidate
+    parsed = urllib.parse.urlparse(candidate)
+    try:
+        port = parsed.port
+    except ValueError as exc:
+        raise SubtitleProviderError("The provider returned an unsafe subtitle download address.") from exc
+    if (
+        parsed.scheme != "https"
+        or parsed.hostname != SUBDL_DOWNLOAD_HOST
+        or parsed.username is not None
+        or parsed.password is not None
+        or port not in (None, 443)
+        or bool(parsed.fragment)
+    ):
+        raise SubtitleProviderError("The provider returned an unsafe subtitle download address.")
+    if not parsed.path.startswith("/subtitle/"):
+        raise SubtitleProviderError("The provider returned an unsupported subtitle download address.")
+    return candidate
+
+
+def _subtitle_suffix(name: str, fallback_format: str = "srt") -> str:
+    suffix = Path(name).suffix.lower()
+    if suffix in SUPPORTED_SUBTITLE_EXTENSIONS:
+        return suffix
+    fallback = "." + fallback_format.lower().lstrip(".")
+    return fallback if fallback in SUPPORTED_SUBTITLE_EXTENSIONS else ".srt"
+
+
+def _clean_filename_component(value: str) -> str:
+    cleaned = re.sub(r"[\x00-\x1f\x7f/\\]+", "_", value).strip(" .")
+    return cleaned or "subtitle"
+
+
+def _target_filename(media_path: Path, language: str, suffix: str) -> str:
+    language_tag = _normalise_language(language).lower()
+    return f"{_clean_filename_component(media_path.stem)}.{language_tag}{suffix}"
+
+
+def _as_int(value: object) -> int | None:
+    try:
+        if value is None or value == "":
+            return None
+        return int(str(value))
+    except (TypeError, ValueError):
+        return None
+
+
+def _words(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", value.casefold()).strip()
+
+
+def _compact(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "", value.casefold())
+
+
+def _title_cleanup(value: str) -> str:
+    cleaned = Path(value).stem
+    cleaned = re.sub(r"[._]+", " ", cleaned)

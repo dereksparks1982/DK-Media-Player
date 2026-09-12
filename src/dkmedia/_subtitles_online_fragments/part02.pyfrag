@@ -1,0 +1,118 @@
+    cleaned = re.sub(r"\s+", " ", cleaned).strip(" -_[](){}.")
+    return cleaned
+
+
+def _episode_title_cleanup(rest: str) -> str:
+    cleaned = _title_cleanup(rest)
+    if " - " in cleaned:
+        cleaned = cleaned.split(" - ", 1)[0]
+    cleaned = re.sub(r"\b(?:720p|1080p|2160p|480p|web|webrip|web-dl|bluray|brrip|dvdrip|x264|x265|h264|h265|hevc|aac|mp4|mkv|avi)\b.*$", "", cleaned, flags=re.I)
+    return re.sub(r"\s+", " ", cleaned).strip(" -_[](){}.")
+
+
+def parse_search_intent(query: str) -> SearchIntent:
+    raw = query.strip()
+    stem = _title_cleanup(raw)
+    for pattern in (SXXEYY_RE, X_EP_RE, SEASON_EPISODE_RE):
+        match = pattern.match(stem)
+        if match:
+            title = _title_cleanup(match.group("title"))
+            episode_title = _episode_title_cleanup(match.group("rest"))
+            return SearchIntent(
+                raw_query=raw,
+                stem=stem,
+                title=title,
+                season=int(match.group("season")),
+                episode=int(match.group("episode")),
+                episode_title=episode_title,
+            )
+    return SearchIntent(raw_query=raw, stem=stem, title=stem)
+
+
+def _episode_text_matches(intent: SearchIntent, *values: object) -> bool:
+    if not intent.is_tv_episode:
+        return True
+    haystack = " ".join(str(value or "") for value in values).casefold()
+    compact = _compact(haystack)
+    if intent.episode_token and intent.episode_token in compact:
+        return True
+    if intent.alternate_episode_token and intent.alternate_episode_token in compact:
+        return True
+    if intent.episode_title and _compact(intent.episode_title) and _compact(intent.episode_title) in compact:
+        return True
+    return False
+
+
+def _episode_metadata_matches(intent: SearchIntent, *items: dict) -> bool | None:
+    """Return True/False when episode metadata is present, or None when metadata is absent.
+
+    Child subtitle-file metadata is passed before parent pack metadata. If a child file says
+    it is a different episode, the parent season-pack range must not rescue it.
+    """
+    if not intent.is_tv_episode:
+        return True
+    saw_metadata = False
+    saw_range_match = False
+    for item in items:
+        season = _as_int(item.get("season"))
+        episode = _as_int(item.get("episode"))
+        if season is not None or episode is not None:
+            saw_metadata = True
+        if season is not None and episode is not None:
+            return season == intent.season and episode == intent.episode
+        episode_from = _as_int(item.get("episode_from"))
+        episode_end = _as_int(item.get("episode_end"))
+        if season == intent.season and episode_from is not None and episode_end is not None:
+            saw_metadata = True
+            if episode_from <= int(intent.episode or 0) <= episode_end:
+                saw_range_match = True
+    if saw_range_match:
+        return True
+    if saw_metadata:
+        return False
+    return None
+
+
+def _match_score(intent: SearchIntent, result: OnlineSubtitle, *text_values: object) -> int:
+    score = 0
+    if intent.is_tv_episode:
+        if result.season == intent.season and result.episode == intent.episode:
+            score += 500
+        if _episode_text_matches(intent, result.release_name, result.name, *text_values):
+            score += 250
+        if intent.title and _compact(intent.title) in _compact(" ".join(str(value or "") for value in (result.release_name, result.name, *text_values))):
+            score += 80
+        if intent.episode_title and _compact(intent.episode_title) in _compact(" ".join(str(value or "") for value in (result.release_name, result.name, *text_values))):
+            score += 120
+    if result.subtitle_format == "srt":
+        score += 20
+    if not result.hearing_impaired:
+        score += 5
+    return score
+
+
+def _candidate_target(directory: Path, filename: str, payload: bytes) -> Path:
+    target = directory / filename
+    if not target.exists():
+        return target
+    try:
+        if target.is_file() and target.read_bytes() == payload:
+            return target
+    except OSError:
+        pass
+    stem = target.stem
+    suffix = target.suffix
+    for index in range(1, 1000):
+        candidate = target.with_name(f"{stem}.subdl{index if index > 1 else ''}{suffix}")
+        if not candidate.exists():
+            return candidate
+    raise SubtitleProviderError("Could not choose a safe subtitle filename.")
+
+
+def _atomic_write(directory: Path, filename: str, payload: bytes) -> Path:
+    directory.mkdir(parents=True, exist_ok=True)
+    target = _candidate_target(directory, filename, payload)
+    if target.exists():
+        return target.resolve()
+    temporary: Path | None = None
+    try:

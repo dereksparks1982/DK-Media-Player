@@ -1,0 +1,139 @@
+from __future__ import annotations
+
+import queue
+import threading
+import tkinter as tk
+from pathlib import Path
+from tkinter import messagebox, ttk
+from typing import Callable
+
+from .subtitles_online import OnlineSubtitle, SubDLClient, SubtitleProviderError
+
+BODY = "#111116"
+PANEL = "#1b1b22"
+INACTIVE = "#2b2b32"
+PURPLE = "#5f329d"
+PURPLE_ACTIVE = "#7442b5"
+SILVER = "#bfc1c8"
+BLACK = "#000000"
+WHITE = "#ffffff"
+MUTED = "#b8b8c0"
+
+LANGUAGES = (
+    ("English", "EN"),
+    ("French", "FR"),
+    ("German", "DE"),
+    ("Italian", "IT"),
+    ("Portuguese", "PT"),
+    ("Spanish", "ES"),
+    ("Dutch", "NL"),
+    ("Polish", "PL"),
+    ("Swedish", "SV"),
+    ("Japanese", "JA"),
+)
+
+
+class SubtitleSearchWindow(tk.Toplevel):
+    def __init__(
+        self,
+        parent: tk.Misc,
+        *,
+        media_path: str,
+        api_key: str,
+        built_in_api_key: str = "",
+        using_built_in_key: bool = False,
+        cache_directory: str | Path = "",
+        on_save_key: Callable[[str], None],
+        on_use: Callable[[Path], bool],
+        on_close: Callable[[], None],
+        auto_search: bool = False,
+    ) -> None:
+        super().__init__(parent)
+        self.media_path = str(Path(media_path).expanduser().resolve())
+        self.built_in_api_key = built_in_api_key.strip()
+        self.using_built_in_key = using_built_in_key
+        self.cache_directory = Path(cache_directory).expanduser()
+        self.on_save_key = on_save_key
+        self.on_use = on_use
+        self.on_close_callback = on_close
+        self.results: list[OnlineSubtitle] = []
+        self.searching = False
+        self.downloading = False
+        self._closed = False
+        self._events: queue.SimpleQueue[Callable[[], None]] = queue.SimpleQueue()
+        self._event_job: str | None = None
+
+        self.title("Find Subtitles Online • SubDL")
+        self.geometry("940x560")
+        self.minsize(780, 460)
+        self.configure(bg=BODY)
+        self.transient(parent)
+        self.protocol("WM_DELETE_WINDOW", self.close)
+
+        self.query_var = tk.StringVar(value=Path(self.media_path).name)
+        self.api_key_var = tk.StringVar(value=api_key)
+        self.language_name = tk.StringVar(value="English")
+        initial_status = "Ready to search SubDL with built-in private key" if self.using_built_in_key else "Ready to search SubDL"
+        self.status_var = tk.StringVar(value=initial_status)
+        self._build_ui()
+        self._event_job = self.after(50, self._drain_events)
+        self.after(50, self.query_entry.focus_set)
+        if auto_search and api_key.strip():
+            self.after(250, self.search)
+
+    def _button(self, parent: tk.Misc, text: str, command: Callable[[], None]) -> tk.Button:
+        return tk.Button(
+            parent,
+            text=text,
+            command=command,
+            bg=PURPLE,
+            fg=WHITE,
+            activebackground=PURPLE_ACTIVE,
+            activeforeground=WHITE,
+            relief="solid",
+            bd=1,
+            highlightthickness=1,
+            highlightbackground=SILVER,
+            highlightcolor=SILVER,
+            padx=10,
+            pady=5,
+            cursor="hand2",
+        )
+
+    def _entry(self, parent: tk.Misc, variable: tk.StringVar, *, show: str | None = None) -> tk.Entry:
+        return tk.Entry(
+            parent,
+            textvariable=variable,
+            show=show or "",
+            bg="#292933",
+            fg=WHITE,
+            insertbackground=WHITE,
+            selectbackground=PURPLE,
+            selectforeground=WHITE,
+            relief="solid",
+            bd=1,
+            highlightthickness=1,
+            highlightbackground=SILVER,
+            highlightcolor=PURPLE,
+        )
+
+    def _build_ui(self) -> None:
+        header = tk.Frame(self, bg=PANEL)
+        header.pack(fill="x")
+        tk.Label(header, text="Online Subtitle Search", bg=PANEL, fg=WHITE, font=("TkDefaultFont", 13, "bold")).pack(anchor="w", padx=12, pady=(10, 2))
+        tk.Label(
+            header,
+            text="Search sends only the filename/title and selected language to SubDL. The video file is never uploaded.",
+            bg=PANEL,
+            fg=MUTED,
+        ).pack(anchor="w", padx=12, pady=(0, 10))
+
+        form = tk.Frame(self, bg=BODY)
+        form.pack(fill="x", padx=12, pady=10)
+
+        tk.Label(form, text="SubDL API key", bg=BODY, fg=WHITE).grid(row=0, column=0, sticky="w", pady=(0, 4))
+        self.api_key_entry = self._entry(form, self.api_key_var, show="•")
+        self.api_key_entry.grid(row=1, column=0, sticky="ew", padx=(0, 8))
+        clear_button = self._button(form, "Clear Saved Key", self.clear_key)
+        clear_button.grid(row=1, column=1, padx=(0, 16))
+

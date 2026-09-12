@@ -1,0 +1,130 @@
+            if not auto_search:
+                messagebox.showinfo("Online Subtitles", "Open a video before searching for subtitles.")
+            return
+        browser = getattr(self, "subtitle_browser", None)
+        if browser is not None:
+            try:
+                if browser.winfo_exists():
+                    browser.deiconify()
+                    browser.lift()
+                    browser.focus_force()
+                    if auto_search:
+                        browser.search()
+                    return
+            except tk.TclError:
+                pass
+        self.subtitle_browser = SubtitleSearchWindow(
+            self,
+            media_path=self.current_file,
+            api_key=self._saved_subdl_key(),
+            built_in_api_key=BUILT_IN_SUBDL_API_KEY.strip(),
+            using_built_in_key=self._using_built_in_subdl_key(),
+            cache_directory=self._subtitle_cache_directory(),
+            on_save_key=self._save_subdl_key,
+            on_use=self._use_downloaded_subtitle,
+            on_close=self._subtitle_browser_closed,
+            auto_search=auto_search,
+        )
+
+    def _subtitle_browser_closed(self) -> None:
+        self.subtitle_browser = None
+
+    def _close_subtitle_browser(self) -> None:
+        browser = getattr(self, "subtitle_browser", None)
+        if browser is None:
+            return
+        self.subtitle_browser = None
+        try:
+            if browser.winfo_exists():
+                browser.destroy()
+        except tk.TclError:
+            pass
+
+    def _use_downloaded_subtitle(self, subtitle_path: Path) -> bool:
+        return self._load_external_subtitle(subtitle_path, remember_manual=True)
+
+    def _choose_subtitle(self) -> None:
+        if not self.controller:
+            return
+        path = choose_file_native(
+            title="Open subtitle",
+            initial_dir=self.state_store.last_directory("last_subtitle_dir"),
+            fallback=filedialog.askopenfilename,
+        )
+        if path:
+            self.state_store.remember_directory("last_subtitle_dir", path)
+            if not self._load_external_subtitle(path, remember_manual=True):
+                messagebox.showwarning("Subtitle", "libVLC did not accept this subtitle file.")
+
+    def _space_toggle(self, event) -> str | None:
+        if isinstance(event.widget, (tk.Entry, tk.Text, ttk.Combobox)):
+            return None
+        self._toggle()
+        return "break"
+
+    def _toggle(self) -> None:
+        if self.controller:
+            self.controller.pause_toggle()
+
+    def _seek(self, seconds: int) -> None:
+        if self.controller:
+            self.controller.seek_relative(seconds)
+
+    def _previous_frame(self) -> None:
+        if self.controller:
+            self.controller.pause()
+            self.controller.seek_relative_ms(-40)
+
+    def _next_frame(self) -> None:
+        if self.controller:
+            self.controller.pause()
+            self.controller.next_frame()
+
+    def _snapshot(self) -> None:
+        if not self.controller:
+            return
+        default = Path.home() / "Pictures" / f"DKMedia-{datetime.now():%Y%m%d-%H%M%S}.png"
+        path = filedialog.asksaveasfilename(initialfile=default.name, initialdir=default.parent, defaultextension=".png")
+        if path and not self.controller.snapshot(path):
+            messagebox.showwarning("Screenshot", "Screenshot failed.")
+
+    def _mousewheel_volume(self, event) -> str:
+        self._adjust_volume(5 if event.delta > 0 else -5)
+        return "break"
+
+    def _adjust_volume(self, delta: int) -> None:
+        self.volume.set(max(0, min(200, self.volume.get() + delta)))
+        self._volume_changed()
+
+    def _volume_changed(self, _value=None) -> None:
+        value = self.volume.get()
+        self.volume_label.configure(text=f"{value}%")
+        if self.controller:
+            self.controller.set_volume(value)
+        self.state_store.set_volume(value)
+
+    def _rate_changed(self) -> None:
+        if self.controller:
+            try:
+                self.controller.set_rate(float(self.rate.get()))
+            except ValueError:
+                pass
+
+    def _timeline_released(self, _event) -> None:
+        self.dragging_timeline = False
+        if self.controller:
+            length = self.controller.get_length_ms()
+            if length > 0:
+                self.controller.set_time_ms(int(length * float(self.timeline.get()) / 1000.0))
+
+    def _toggle_fullscreen(self) -> None:
+        self.fullscreen = not self.fullscreen
+        self.attributes("-fullscreen", self.fullscreen)
+        self._schedule_cursor_hide()
+
+    def _fullscreen_key(self, _event=None) -> str:
+        self._toggle_fullscreen()
+        return "break"
+
+    def _escape_fullscreen(self, _event=None) -> str | None:
+        if self.fullscreen:

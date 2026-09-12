@@ -1,0 +1,112 @@
+        with tempfile.NamedTemporaryFile(prefix=".dkmedia-subtitle-", dir=directory, delete=False) as handle:
+            temporary = Path(handle.name)
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        temporary.replace(target)
+    except OSError as exc:
+        if temporary is not None:
+            try:
+                temporary.unlink(missing_ok=True)
+            except OSError:
+                pass
+        raise SubtitleProviderError(f"Could not save the subtitle in {directory}: {exc}") from exc
+    return target.resolve()
+
+
+def _safe_zip_members(archive: zipfile.ZipFile) -> list[zipfile.ZipInfo]:
+    members: list[zipfile.ZipInfo] = []
+    for info in archive.infolist():
+        if info.is_dir():
+            continue
+        path = Path(info.filename)
+        if path.is_absolute() or ".." in path.parts:
+            raise SubtitleProviderError("The subtitle archive contained an unsafe path.")
+        if info.file_size > MAX_EXTRACTED_SUBTITLE_BYTES:
+            raise SubtitleProviderError("The subtitle inside the archive was unexpectedly large.")
+        if path.suffix.lower() in SUPPORTED_SUBTITLE_EXTENSIONS:
+            members.append(info)
+    return members
+
+
+def _member_score(info: zipfile.ZipInfo, media_stem: str) -> tuple[int, int, str]:
+    filename = Path(info.filename).name.casefold()
+    stem = Path(filename).stem
+    score = 0
+    if stem == media_stem:
+        score += 100
+    elif stem.startswith(media_stem):
+        score += 60
+    elif media_stem in stem:
+        score += 30
+    if Path(filename).suffix.lower() == ".srt":
+        score += 10
+    if any(marker in stem.replace("-", ".").replace("_", ".").split(".") for marker in ("en", "eng", "english")):
+        score += 8
+    return (-score, len(filename), filename)
+
+
+def _extract_best_subtitle(payload: bytes, media_path: Path) -> tuple[bytes, str]:
+    try:
+        with zipfile.ZipFile(io.BytesIO(payload)) as archive:
+            members = _safe_zip_members(archive)
+            if not members:
+                raise SubtitleProviderError("The downloaded archive did not contain a supported subtitle file.")
+            members.sort(key=lambda info: _member_score(info, media_path.stem.casefold()))
+            selected = members[0]
+            data = archive.read(selected)
+            if len(data) > MAX_EXTRACTED_SUBTITLE_BYTES:
+                raise SubtitleProviderError("The extracted subtitle was unexpectedly large.")
+            return data, Path(selected.filename).name
+    except zipfile.BadZipFile as exc:
+        raise SubtitleProviderError("The provider returned a damaged subtitle archive.") from exc
+
+
+class SubDLClient:
+    def __init__(
+        self,
+        api_key: str,
+        *,
+        opener: Callable[..., object] | None = None,
+        timeout: float = 20.0,
+    ) -> None:
+        self.api_key = api_key.strip()
+        self._opener = opener or urllib.request.urlopen
+        self.timeout = timeout
+
+    def _request_json(self, parameters: dict[str, str]) -> dict:
+        if not self.api_key:
+            raise SubtitleProviderError("Enter a SubDL API key before searching.")
+        params = {"api_key": self.api_key, **parameters}
+        url = SUBDL_API_ENDPOINT + "?" + urllib.parse.urlencode(params)
+        request = urllib.request.Request(url, headers={"Accept": "application/json", "User-Agent": USER_AGENT})
+        try:
+            with self._opener(request, timeout=self.timeout) as response:
+                payload = _read_limited(response, MAX_SEARCH_RESPONSE_BYTES)
+        except (OSError, urllib.error.URLError, TimeoutError) as exc:
+            raise SubtitleProviderError(f"Could not reach SubDL: {exc}") from exc
+        try:
+            data = json.loads(payload.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise SubtitleProviderError("SubDL returned an unreadable response.") from exc
+        if not isinstance(data, dict):
+            raise SubtitleProviderError("SubDL returned an unexpected response.")
+        if not data.get("status", False):
+            raise SubtitleProviderError(str(data.get("error") or "SubDL search failed."))
+        return data
+
+    def _base_parameters(self, language: str) -> dict[str, str]:
+        return {
+            "languages": _normalise_language(language),
+            "subs_per_page": "30",
+            "comment": "1",
+            "releases": "1",
+            "hi": "1",
+            "unpack": "1",
+        }
+
+    def _collect_results(self, data: dict, language: str, intent: SearchIntent, *, strict_episode: bool) -> list[OnlineSubtitle]:
+        results: list[OnlineSubtitle] = []
+        for item in data.get("subtitles", []):
+            if not isinstance(item, dict):
+                continue
