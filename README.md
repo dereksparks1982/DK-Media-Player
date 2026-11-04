@@ -1,5 +1,12 @@
 # DK Media Player
 
+## DK Softworks · House of Culture
+
+**DK Softworks** is the studio and project identity. **DK** draws on the Russian abbreviation **ДК** for **Дом культуры** (*Dom kultury*), meaning **“House of Culture.”** Traditionally, a *dom kultury* is a community center for the arts, creativity, performance, and learning.
+
+This identifies the present project or its stewardship; it does not change existing licenses, copyright holders, original creators, or historical credits.
+
+
 Preservation release of **DK Media v0.1.11**, the original Linux DK Media application before the project expanded into the later media-suite/console line.
 
 DK Media is a Python/Tkinter desktop media player built around VLC/libVLC. This repository keeps the original Player, Library, yt-dlp and P2P functions while adding portable Linux launch/install packaging so the historical build can actually be run on a modern Ubuntu/Debian system.
