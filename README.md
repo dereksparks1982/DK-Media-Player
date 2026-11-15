@@ -11,6 +11,14 @@ Preservation release of **DK Media v0.1.11**, the original Linux DK Media applic
 
 DK Media is a Python/Tkinter desktop media player built around VLC/libVLC. This repository keeps the original Player, Library, yt-dlp and P2P functions while adding portable Linux launch/install packaging so the historical build can actually be run on a modern Ubuntu/Debian system.
 
+## Web player
+
+**[Open DK Media Player in your browser](https://dereksparks1982.github.io/DK-Media-Player/)**
+
+The web player is published from `docs/` through GitHub Pages and works on desktop browsers and phones. Open video/audio files stored on your device, play direct media URLs, manage a session playlist, adjust playback, load SRT/VTT subtitles, and save media links locally in your browser.
+
+The browser edition is separate from the Python/Tkinter + VLC Linux application. GitHub Pages does not stream movies stored on your home computer by itself: remote playback requires a reachable media URL and a browser-supported codec. Local files remain on your device, and saved links do not automatically synchronize across browsers.
+
 ## Install on Ubuntu / Debian
 
 ```bash

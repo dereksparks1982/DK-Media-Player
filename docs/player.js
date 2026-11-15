@@ -1,0 +1,440 @@
+(() => {
+  "use strict";
+  const byId = id => document.getElementById(id);
+  const media = byId("media");
+  const screen = byId("screen");
+  const queueView = byId("queue");
+  const libraryView = byId("libraryList");
+  const store = {
+    links: "dkmedia.web.links.v1",
+    resume: "dkmedia.web.resume.v1",
+    volume: "dkmedia.web.volume.v1"
+  };
+  const read = (key, fallback) => {
+    try {
+      const value = JSON.parse(localStorage.getItem(key));
+      return value === null ? fallback : value;
+    } catch (_) { return fallback; }
+  };
+  const write = (key, value) => {
+    try { localStorage.setItem(key, JSON.stringify(value)); }
+    catch (_) { /* Playback still works if storage is unavailable. */ }
+  };
+  const validURL = text => {
+    try {
+      const url = new URL(text);
+      return ["https:", "http:"].includes(url.protocol) ? url.href : null;
+    } catch (_) { return null; }
+  };
+  const savedLinks = read(store.links, []);
+  const resumeData = read(store.resume, {});
+  const state = {
+    queue: [], current: -1, links: Array.isArray(savedLinks) ? savedLinks.filter(x => x && validURL(x.url) && typeof x.name === "string") : [],
+    resume: resumeData && typeof resumeData === "object" && !Array.isArray(resumeData) ? resumeData : {},
+    subtitleObject: null, subtitleNode: null, lastResumeSave: 0
+  };
+  const current = () => state.queue[state.current] || null;
+  const status = (message, good = false) => {
+    const node = byId("status");
+    node.textContent = message;
+    node.classList.toggle("good", good);
+  };
+  const time = seconds => {
+    if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
+    const s = Math.floor(seconds);
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    return (h ? h + ":" + String(m).padStart(2, "0") : String(m)) + ":" + String(s % 60).padStart(2, "0");
+  };
+  const fileIsMedia = file => !!file && (
+    (typeof file.type === "string" && /^(video|audio)\//.test(file.type)) ||
+    /\.(mp4|m4v|mov|mkv|avi|webm|ogg|ogv|mp3|m4a|aac|wav|flac|opus|ts)$/i.test(file.name)
+  );
+  const fileIsAudio = file => !!file && (
+    file.type.startsWith("audio/") || /\.(mp3|m4a|aac|wav|flac|opus)$/i.test(file.name)
+  );
+  const rememberPosition = () => {
+    const item = current();
+    if (!item || !Number.isFinite(media.duration) || media.duration <= 0) return;
+    if (media.currentTime >= media.duration - 4) delete state.resume[item.key];
+    else if (media.currentTime > 2) state.resume[item.key] = media.currentTime;
+    const keys = Object.keys(state.resume);
+    if (keys.length > 160) keys.slice(0, keys.length - 160).forEach(key => delete state.resume[key]);
+    write(store.resume, state.resume);
+  };
+  const clearSubtitles = () => {
+    if (state.subtitleNode) { state.subtitleNode.remove(); state.subtitleNode = null; }
+    if (state.subtitleObject) { URL.revokeObjectURL(state.subtitleObject); state.subtitleObject = null; }
+    byId("subtitleLabel").textContent = "No external subtitles";
+  };
+  const updateButtons = () => {
+    const item = current();
+    const isPlaying = !!item && !media.paused && !media.ended;
+    byId("playPause").textContent = isPlaying ? "⏸" : "▶";
+    byId("playPause").setAttribute("aria-label", isPlaying ? "Pause" : "Play");
+    byId("playPause").title = isPlaying ? "Pause" : "Play";
+    ["playPause", "stop"].forEach(id => { byId(id).disabled = !item; });
+    byId("previous").disabled = state.current <= 0;
+    byId("next").disabled = state.current < 0 || state.current >= state.queue.length - 1;
+    byId("saveCurrent").disabled = !item || item.kind !== "url";
+    byId("clearQueue").disabled = state.queue.length === 0;
+    byId("addSubtitles").disabled = !item;
+    byId("mute").textContent = media.muted || media.volume === 0 ? "🔇" : "🔊";
+    byId("mute").setAttribute("aria-label", media.muted ? "Unmute" : "Mute");
+  };
+  const updateTime = () => {
+    const length = media.duration;
+    const seekable = Number.isFinite(length) && length > 0;
+    byId("currentTime").textContent = time(media.currentTime);
+    byId("duration").textContent = seekable ? time(length) : current() ? "LIVE" : "0:00";
+    byId("seek").disabled = !current() || !seekable;
+    byId("seek").value = seekable ? String(Math.max(0, Math.min(1000, Math.round(1000 * media.currentTime / length)))) : "0";
+  };
+  const renderQueue = () => {
+    queueView.replaceChildren();
+    byId("queueCount").textContent = state.queue.length + (state.queue.length === 1 ? " item" : " items");
+    if (!state.queue.length) {
+      const empty = document.createElement("li");
+      empty.className = "queue-empty";
+      empty.textContent = "Your playlist is empty. Add a file or stream to begin.";
+      queueView.append(empty);
+    }
+    state.queue.forEach((item, index) => {
+      const li = document.createElement("li");
+      if (index === state.current) li.className = "current";
+      const play = document.createElement("button");
+      play.type = "button";
+      play.className = "item-play";
+      play.title = "Play " + item.name;
+      const icon = document.createElement("span");
+      icon.textContent = item.audio ? "♫" : "▶";
+      icon.setAttribute("aria-hidden", "true");
+      const labels = document.createElement("span");
+      labels.style.minWidth = "0";
+      const title = document.createElement("span");
+      title.className = "item-title";
+      title.textContent = item.name;
+      const source = document.createElement("span");
+      source.className = "item-meta";
+      source.textContent = item.kind === "file" ? "Local file" : "Remote URL";
+      labels.append(title, source);
+      play.append(icon, labels);
+      play.addEventListener("click", () => load(index));
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "icon-btn remove";
+      remove.textContent = "×";
+      remove.title = "Remove from queue";
+      remove.setAttribute("aria-label", "Remove " + item.name);
+      remove.addEventListener("click", () => removeItem(index));
+      li.append(play, remove);
+      queueView.append(li);
+    });
+    updateButtons();
+  };
+  const idle = () => {
+    clearSubtitles();
+    state.current = -1;
+    media.pause();
+    media.removeAttribute("src");
+    media.load();
+    screen.classList.add("empty");
+    screen.classList.remove("audio");
+    byId("nowTitle").textContent = "Nothing playing";
+    byId("nowSource").textContent = "Select media to get started";
+    byId("kindBadge").textContent = "Ready";
+    renderQueue();
+    updateTime();
+  };
+  const playCurrent = () => {
+    if (!current()) { status("Open a media file or paste a direct video link first."); return; }
+    const result = media.play();
+    if (result && typeof result.catch === "function") result.catch(err => {
+      if (err && err.name === "NotAllowedError") status("Tap Play to start playback on this device.");
+      else if (err && err.name !== "AbortError") status("Couldn't start this media. Check its format or source.");
+    });
+  };
+  const load = (index, autoplay = true) => {
+    if (index < 0 || index >= state.queue.length) return;
+    rememberPosition();
+    clearSubtitles();
+    media.pause();
+    state.current = index;
+    const item = current();
+    media.src = item.src;
+    media.load();
+    screen.classList.remove("empty");
+    screen.classList.toggle("audio", item.audio);
+    byId("nowTitle").textContent = item.name;
+    byId("nowSource").textContent = item.kind === "file" ? "Local device · Not uploaded" : item.src;
+    byId("kindBadge").textContent = item.kind === "file" ? "LOCAL" : "STREAM";
+    renderQueue();
+    updateTime();
+    status("");
+    if (autoplay) playCurrent();
+  };
+  const removeItem = index => {
+    if (index < 0 || index >= state.queue.length) return;
+    const wasCurrent = state.current === index;
+    if (wasCurrent) rememberPosition();
+    const old = state.queue.splice(index, 1)[0];
+    if (wasCurrent) {
+      if (state.queue.length) load(Math.min(index, state.queue.length - 1), false);
+      else idle();
+    } else {
+      if (index < state.current) state.current--;
+      renderQueue();
+    }
+    if (old.kind === "file") URL.revokeObjectURL(old.src);
+  };
+  const addFiles = files => {
+    const accepted = Array.from(files || []).filter(fileIsMedia);
+    if (!accepted.length) { status("No supported media file selected. Choose a video or audio file."); return; }
+    const first = state.queue.length;
+    for (const file of accepted) state.queue.push({
+      kind: "file", name: file.name, audio: fileIsAudio(file),
+      src: URL.createObjectURL(file),
+      key: "file:" + file.name + ":" + file.size + ":" + file.lastModified
+    });
+    renderQueue();
+    if (state.current === -1) load(first);
+    status("Added " + accepted.length + (accepted.length === 1 ? " file" : " files") + " to the queue.", true);
+  };
+  const titleFromUrl = url => {
+    try {
+      const part = decodeURIComponent(new URL(url).pathname.split("/").filter(Boolean).pop() || "");
+      return part || "Remote media";
+    } catch (_) { return "Remote media"; }
+  };
+  const addUrl = (raw, name) => {
+    const url = validURL(raw.trim());
+    if (!url) { status("Enter a direct HTTP or HTTPS link to a media file."); return; }
+    const item = {kind: "url", name: name.trim() || titleFromUrl(url), src: url, key: "url:" + url, audio: /\.(mp3|m4a|aac|wav|flac|opus)(?:[?#]|$)/i.test(url)};
+    state.queue.push(item);
+    load(state.queue.length - 1);
+    status("Direct media URL added. If playback fails, check the source and format.", true);
+    byId("urlName").value = "";
+  };
+  const saveCurrentURL = () => {
+    const item = current();
+    if (!item || item.kind !== "url") { status("Only direct media URLs can be saved. Local files stay on your device."); return; }
+    const existing = state.links.findIndex(link => link.url === item.src);
+    if (existing !== -1) state.links.splice(existing, 1);
+    state.links.unshift({url: item.src, name: item.name});
+    state.links = state.links.slice(0, 100);
+    write(store.links, state.links);
+    renderLibrary();
+    status("Saved to your browser's Library.", true);
+  };
+  const renderLibrary = () => {
+    libraryView.replaceChildren();
+    byId("clearLibrary").disabled = state.links.length === 0;
+    if (!state.links.length) {
+      const empty = document.createElement("li");
+      empty.className = "empty-copy";
+      empty.textContent = "No saved links yet. Play a media URL, then choose 'Save URL to Library'.";
+      libraryView.append(empty);
+      return;
+    }
+    for (const item of state.links) {
+      const li = document.createElement("li");
+      const details = document.createElement("div");
+      details.className = "saved-meta";
+      const title = document.createElement("strong");
+      title.textContent = item.name;
+      const location = document.createElement("small");
+      location.textContent = item.url;
+      details.append(title, location);
+      const actions = document.createElement("div");
+      actions.className = "saved-actions";
+      const play = document.createElement("button");
+      play.className = "btn primary small";
+      play.textContent = "Play";
+      play.type = "button";
+      play.addEventListener("click", () => {
+        addUrl(item.url, item.name);
+        showPage("player");
+      });
+      const remove = document.createElement("button");
+      remove.className = "btn ghost small";
+      remove.textContent = "Remove";
+      remove.type = "button";
+      remove.addEventListener("click", () => {
+        state.links = state.links.filter(link => link.url !== item.url);
+        write(store.links, state.links);
+        renderLibrary();
+      });
+      actions.append(play, remove);
+      li.append(details, actions);
+      libraryView.append(li);
+    }
+  };
+  const showPage = name => {
+    if (!["player", "library", "help"].includes(name)) name = "player";
+    for (const page of ["player", "library", "help"]) byId("page-" + page).hidden = page !== name;
+    document.querySelectorAll("[data-nav]").forEach(button => {
+      if (button.dataset.nav === name) button.setAttribute("aria-current", "page");
+      else button.removeAttribute("aria-current");
+    });
+  };
+  document.querySelectorAll("[data-nav]").forEach(button => button.addEventListener("click", () => {
+    const name = button.dataset.nav;
+    showPage(name);
+    if (location.hash !== "#" + name) location.hash = name;
+  }));
+  addEventListener("hashchange", () => showPage(location.hash.slice(1)));
+  showPage(location.hash.slice(1));
+  for (const id of ["openHeader", "openEmpty", "addQueueFiles"]) byId(id).addEventListener("click", () => byId("filePicker").click());
+  byId("filePicker").addEventListener("change", event => {
+    addFiles(event.target.files);
+    event.target.value = "";
+  });
+  for (const eventName of ["dragenter", "dragover"]) screen.addEventListener(eventName, event => {
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+    screen.classList.add("dragging");
+  });
+  for (const eventName of ["dragleave", "drop"]) screen.addEventListener(eventName, event => {
+    event.preventDefault();
+    screen.classList.remove("dragging");
+  });
+  screen.addEventListener("drop", event => addFiles(event.dataTransfer && event.dataTransfer.files));
+  byId("urlForm").addEventListener("submit", event => {
+    event.preventDefault();
+    addUrl(byId("urlInput").value, byId("urlName").value);
+  });
+  byId("saveCurrent").addEventListener("click", saveCurrentURL);
+  byId("clearLibrary").addEventListener("click", () => {
+    if (!state.links.length || !confirm("Remove all saved links from this browser?")) return;
+    state.links = [];
+    write(store.links, state.links);
+    renderLibrary();
+  });
+  byId("clearQueue").addEventListener("click", () => {
+    rememberPosition();
+    const old = state.queue.splice(0);
+    idle();
+    old.forEach(item => { if (item.kind === "file") URL.revokeObjectURL(item.src); });
+    status("Queue cleared.", true);
+  });
+  byId("playPause").addEventListener("click", () => media.paused || media.ended ? playCurrent() : media.pause());
+  byId("stop").addEventListener("click", () => {
+    media.pause();
+    try { media.currentTime = 0; } catch (_) {}
+    updateButtons();
+    updateTime();
+  });
+  byId("previous").addEventListener("click", () => load(state.current - 1));
+  byId("next").addEventListener("click", () => load(state.current + 1));
+  byId("seek").addEventListener("input", event => {
+    if (Number.isFinite(media.duration) && media.duration > 0) media.currentTime = media.duration * Number(event.target.value) / 1000;
+  });
+  media.addEventListener("loadedmetadata", () => {
+    const item = current();
+    if (!item) return;
+    const position = Number(state.resume[item.key] || 0);
+    if (position > 2 && Number.isFinite(media.duration) && position < media.duration - 4) {
+      try { media.currentTime = position; } catch (_) {}
+    }
+    updateTime();
+  });
+  media.addEventListener("timeupdate", () => {
+    updateTime();
+    const now = Date.now();
+    if (now - state.lastResumeSave > 5000) {
+      state.lastResumeSave = now;
+      rememberPosition();
+    }
+  });
+  for (const eventName of ["play", "pause", "ended", "emptied"]) media.addEventListener(eventName, updateButtons);
+  media.addEventListener("durationchange", updateTime);
+  media.addEventListener("ended", () => {
+    rememberPosition();
+    if (state.current < state.queue.length - 1) load(state.current + 1);
+  });
+  media.addEventListener("error", () => {
+    if (!current() || !media.error) return;
+    const code = media.error.code;
+    const message = code === 4 ? "This file or stream isn't supported by your browser, or the URL isn't direct media." :
+      code === 2 ? "Network error: the remote media couldn't be reached." :
+      code === 3 ? "The browser couldn't decode this media format." :
+      "Unable to play this media source.";
+    status(message);
+    updateButtons();
+  });
+  const initialVolume = Number(read(store.volume, 1));
+  media.volume = Number.isFinite(initialVolume) ? Math.max(0, Math.min(1, initialVolume)) : 1;
+  byId("volume").value = String(Math.round(media.volume * 100));
+  byId("volume").addEventListener("input", event => {
+    media.muted = false;
+    media.volume = Number(event.target.value) / 100;
+    write(store.volume, media.volume);
+    updateButtons();
+  });
+  byId("mute").addEventListener("click", () => {
+    media.muted = !media.muted;
+    updateButtons();
+  });
+  byId("rate").addEventListener("change", event => { media.playbackRate = Number(event.target.value); });
+  if (!document.pictureInPictureEnabled || typeof media.requestPictureInPicture !== "function") byId("pip").hidden = true;
+  byId("pip").addEventListener("click", async () => {
+    try {
+      if (document.pictureInPictureElement) await document.exitPictureInPicture();
+      else if (current()) await media.requestPictureInPicture();
+    } catch (_) { status("Picture in picture isn't available for this video or browser."); }
+  });
+  byId("fullscreen").addEventListener("click", async () => {
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else if (typeof screen.requestFullscreen === "function") await screen.requestFullscreen();
+      else if (typeof media.webkitEnterFullscreen === "function" && current()) media.webkitEnterFullscreen();
+      else status("Fullscreen isn't available in this browser.");
+    } catch (_) { status("Fullscreen isn't available for this video."); }
+  });
+  byId("addSubtitles").addEventListener("click", () => byId("subtitlePicker").click());
+  byId("subtitlePicker").addEventListener("change", async event => {
+    const file = event.target.files && event.target.files[0];
+    event.target.value = "";
+    if (!file || !current()) return;
+    if (!/\.(srt|vtt)$/i.test(file.name)) { status("Choose a .vtt or .srt subtitle file."); return; }
+    try {
+      let body = (await file.text()).replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n");
+      if (/\.srt$/i.test(file.name)) {
+        body = "WEBVTT\n\n" + body.replace(/(\d\d:\d\d:\d\d),(\d{3})/g, "$1.$2");
+      } else if (!body.startsWith("WEBVTT")) body = "WEBVTT\n\n" + body;
+      clearSubtitles();
+      state.subtitleObject = URL.createObjectURL(new Blob([body], {type: "text/vtt"}));
+      const track = document.createElement("track");
+      track.kind = "subtitles";
+      track.label = file.name;
+      track.srclang = "en";
+      track.src = state.subtitleObject;
+      track.default = true;
+      media.append(track);
+      state.subtitleNode = track;
+      track.addEventListener("load", () => { if (track.track) track.track.mode = "showing"; }, {once: true});
+      if (track.track) track.track.mode = "showing";
+      byId("subtitleLabel").textContent = file.name;
+      status("Subtitle track loaded.", true);
+    } catch (_) { status("Couldn't read that subtitle file."); }
+  });
+  document.addEventListener("keydown", event => {
+    if (event.altKey || event.ctrlKey || event.metaKey) return;
+    const tag = event.target && event.target.tagName;
+    if (["INPUT", "TEXTAREA", "SELECT", "BUTTON"].includes(tag) || byId("page-player").hidden || !current()) return;
+    const key = event.key.toLowerCase();
+    if ([" ", "k", "arrowleft", "arrowright", "f", "m"].includes(key)) event.preventDefault();
+    if (key === " " || key === "k") byId("playPause").click();
+    if (key === "f") byId("fullscreen").click();
+    if (key === "m") byId("mute").click();
+    if (key === "arrowleft" && Number.isFinite(media.duration)) media.currentTime = Math.max(0, media.currentTime - 5);
+    if (key === "arrowright" && Number.isFinite(media.duration)) media.currentTime = Math.min(media.duration, media.currentTime + 5);
+  });
+  window.addEventListener("pagehide", () => {
+    rememberPosition();
+    clearSubtitles();
+    state.queue.forEach(item => { if (item.kind === "file") URL.revokeObjectURL(item.src); });
+  });
+  renderLibrary();
+  idle();
+})();

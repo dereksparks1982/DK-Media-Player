@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0d12">
+<meta name="description" content="DK Media Player: a free browser media player for your own videos and music.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="DK Media">
+<title>DK Media Player | Web</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="stylesheet" href="./player.css">
+<script src="./player.js" defer></script>
+</head>
+<body>
+<div class="shell">
+<header class="topbar">
+<a class="brand" href="./" aria-label="DK Media Player home"><span class="brandmark">DK</span><span class="brandname">DK MEDIA PLAYER<small>WEB EDITION</small></span></a>
+<nav class="nav" aria-label="Main navigation">
+<button type="button" data-nav="player" aria-current="page">Player</button>
+<button type="button" data-nav="library">Library</button>
+<button type="button" data-nav="help">Help</button>
+</nav>
+<button class="btn primary" id="openHeader" type="button">＋ Open media</button>
+</header>
+<main>
+<section class="page" id="page-player">
+<div class="section-heading"><div><div class="eyebrow">Original DK Media · Browser Edition</div><h1>Media Player</h1></div><p>Your videos and music, on your device.</p></div>
+<div class="main-grid">
+<div>
+<div class="panel">
+<div class="screen empty" id="screen" aria-label="Media player and file drop area">
+<video id="media" playsinline preload="metadata" aria-label="Selected video"></video>
+<div class="audio-art" aria-hidden="true">♫</div>
+<div class="empty-screen"><div class="empty-icon" aria-hidden="true">▶</div><h2>Ready when you are</h2><p>Choose a video or music file from this device, or open a direct stream below.</p><div class="empty-actions"><button type="button" class="btn primary" id="openEmpty">Open files</button></div><p class="file-hint">You can also drag media files onto this window.</p></div>
+</div>
+<div class="now-playing"><div style="min-width:0"><div class="media-title" id="nowTitle">Nothing playing</div><div class="media-subtitle" id="nowSource">Select media to get started</div></div><span class="badge" id="kindBadge">Ready</span></div>
+<div class="controls" aria-label="Playback controls">
+<div class="seek-row"><time id="currentTime">0:00</time><input id="seek" class="range" type="range" min="0" max="1000" value="0" step="1" aria-label="Playback position" disabled><time id="duration">0:00</time></div>
+<div class="buttons-row">
+<div class="transport"><button type="button" class="icon-btn" id="previous" aria-label="Previous media" title="Previous">⏮</button><button type="button" class="icon-btn big" id="playPause" aria-label="Play" title="Play or pause">▶</button><button type="button" class="icon-btn" id="stop" aria-label="Stop" title="Stop">■</button><button type="button" class="icon-btn" id="next" aria-label="Next media" title="Next">⏭</button></div>
+<div class="extras"><div class="volume"><button type="button" class="icon-btn" id="mute" aria-label="Mute" title="Mute">🔊</button><input type="range" class="range" id="volume" min="0" max="100" value="100" step="1" aria-label="Volume"></div><label class="visually-hidden" for="rate">Playback speed</label><select id="rate" class="select" aria-label="Playback speed"><option value="0.5">0.5×</option><option value="0.75">0.75×</option><option value="1" selected>1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option></select><button type="button" class="icon-btn" id="pip" aria-label="Picture in picture" title="Picture in picture">▣</button><button type="button" class="icon-btn" id="fullscreen" aria-label="Fullscreen" title="Fullscreen">⛶</button></div>
+</div>
+<div class="sub-row"><div class="inline-buttons"><button type="button" class="btn ghost small" id="addSubtitles">＋ Subtitles</button><span class="helper" id="subtitleLabel">No external subtitles</span></div><button type="button" class="btn ghost small" id="saveCurrent">Save URL to Library</button></div>
+</div>
+</div>
+<div class="panel url-panel"><h2>Open a direct media URL</h2><p>Use a direct HTTPS/HTTP video or audio link, such as MP4, MP3, WebM, or an HLS stream on supported browsers. Video website pages are not media files.</p><form id="urlForm" class="url-form"><label class="visually-hidden" for="urlInput">Media address</label><input id="urlInput" type="url" class="field url-input" placeholder="https://example.com/movie.mp4" required autocomplete="url" spellcheck="false"><label class="visually-hidden" for="urlName">Optional title</label><input id="urlName" class="field name-input" placeholder="Title (optional)" maxlength="120"><button type="submit" class="btn primary">Play URL</button></form><div role="status" aria-live="polite" id="status" class="info-status"></div></div>
+</div>
+<aside class="panel" aria-label="Playlist"><div class="sidebar-top"><h2>Up Next</h2><span class="count" id="queueCount">0 items</span></div><ol class="queue" id="queue"><li class="queue-empty">Your playlist is empty. Add a file or stream to begin.</li></ol><div class="sidebar-footer"><button type="button" class="btn ghost" id="addQueueFiles">＋ Add files</button><button type="button" class="btn ghost" id="clearQueue">Clear queue</button></div></aside>
+</div>
+</section>
+<section class="page" id="page-library" hidden>
+<div class="section-heading"><div><div class="eyebrow">Your collection</div><h1>Library</h1></div><p>Saved direct media links live in this browser.</p></div>
+<div class="panel library-panel"><div class="section-heading"><div><h2>Saved streams and media links</h2><p>Play or remove your saved URLs. Local device files are never uploaded to GitHub.</p></div><button type="button" class="btn ghost small" id="clearLibrary">Clear saved links</button></div><ul id="libraryList" class="library-list"><li class="empty-copy">No saved media links yet.</li></ul></div>
+</section>
+<section class="page" id="page-help" hidden>
+<div class="section-heading"><div><div class="eyebrow">DK Softworks</div><h1>Using the web player</h1></div></div>
+<div class="info-grid">
+<div class="panel info-card"><h2>Play files on this device</h2><p>Choose one or several media files. They play in your browser and are not uploaded. File selections last for this page session, so choose the files again after reloading.</p></div>
+<div class="panel info-card"><h2>Play remote video</h2><p>Paste a direct, publicly reachable media URL. The server must permit streaming, and the file must use a codec your browser understands. GitHub Pages does not host or expose videos on your Linux computer.</p></div>
+<div class="panel info-card"><h2>Library and resume</h2><p>Save direct URLs to the Library to reopen later. Watched positions and saved links are stored only in this browser. They do not automatically sync to your other devices.</p></div>
+<div class="panel info-card"><h2>Subtitles</h2><p>Load your own WebVTT (.vtt) or SubRip (.srt) subtitle file for the currently playing video. Built-in subtitle tracks depend on the browser and media format.</p></div>
+<div class="panel info-card"><h2>Keyboard shortcuts</h2><p>Space or K: play/pause. Left and right arrows: jump five seconds. F: fullscreen. M: mute. Shortcuts do not interfere while you type in a field.</p></div>
+<div class="panel info-card"><h2>iPhone and iPad</h2><p>Use Safari or another browser to select a local file or open a direct media URL. You can add this site to your Home Screen. iOS supports HLS streams natively; other codecs vary by device.</p></div>
+</div>
+<p class="fineprint">DK Media Player is free software. This website is a browser-native companion to the original Python/Tkinter + VLC Linux player. It cannot run Linux executables in a browser.</p>
+</section>
+</main>
+<footer class="footer"><span>DK Media Player · DK Softworks</span><span>Private local playback · No media uploads</span></footer>
+</div>
+<input type="file" id="filePicker" class="hidden-file" accept="video/*,audio/*,.mkv,.avi,.m4v,.ts,.flac,.ogg" multiple aria-label="Choose media files">
+<input type="file" id="subtitlePicker" class="hidden-file" accept=".srt,.vtt,text/vtt,application/x-subrip" aria-label="Choose subtitle file">
+</body>
+</html>
