@@ -30,7 +30,7 @@ This UI is intentionally reversible: its controls are fully contained in one ded
 The upper-right corner contains only the language selector, offering **English** and **Русский**. Media files are opened using the player or playlist's existing file buttons. The selection is
 saved locally in the browser and changes the navigation, player labels, help,
 library, notifications, title, and right-click controls without reloading or
-stopping playback. Local filenames and media audio are not translated.
+stopping playback. Local filenames and media audio are not translated. In Russian mode, the illustrative media URL placeholder is localized (`https://пример.рф/фильм.mp4`); real URLs and user-entered addresses are always kept as-is.
 
 The video right-click menu is grouped into compact, expandable **Playback**,
 **Subtitles**, **Audio tracks**, **Speed**, and **Picture** sections, with a direct
