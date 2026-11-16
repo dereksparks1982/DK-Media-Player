@@ -77,7 +77,7 @@
     byId("previous").disabled = state.current <= 0;
     byId("next").disabled = state.current < 0 || state.current >= state.queue.length - 1;
     byId("saveCurrent").disabled = !item || item.kind !== "url";
-    byId("clearQueue").disabled = state.queue.length === 0;
+    byId("clearQueue").disabled = state.current >= 0 ? state.current >= state.queue.length - 1 : state.queue.length === 0;
     byId("addSubtitles").disabled = !item;
     byId("mute").textContent = media.muted || media.volume === 0 ? "🔇" : "🔊";
     byId("mute").setAttribute("aria-label", media.muted ? "Unmute" : "Mute");
@@ -92,16 +92,13 @@
   };
   const renderQueue = () => {
     queueView.replaceChildren();
-    byId("queueCount").textContent = state.queue.length + (state.queue.length === 1 ? " item" : " items");
-    if (!state.queue.length) {
-      const empty = document.createElement("li");
-      empty.className = "queue-empty";
-      empty.textContent = "Your playlist is empty. Add a file or stream to begin.";
-      queueView.append(empty);
-    }
-    state.queue.forEach((item, index) => {
+    // The current video is not an upcoming video; keep it out of Up Next.
+    const nextIndex = state.current + 1;
+    const pending = state.queue.slice(nextIndex);
+    byId("queueCount").textContent = pending.length ? pending.length + (pending.length === 1 ? " item" : " items") : "";
+    pending.forEach((item, offset) => {
+      const index = nextIndex + offset;
       const li = document.createElement("li");
-      if (index === state.current) li.className = "current";
       const play = document.createElement("button");
       play.type = "button";
       play.className = "item-play";
@@ -311,13 +308,19 @@
     renderLibrary();
   });
   byId("clearQueue").addEventListener("click", () => {
-    rememberPosition();
-    const old = state.queue.splice(0);
-    idle();
+    // Clearing Up Next should not interrupt the episode currently on screen.
+    const old = state.queue.splice(state.current + 1);
     old.forEach(item => { if (item.kind === "file") URL.revokeObjectURL(item.src); });
-    status("Queue cleared.", true);
+    renderQueue();
+    status("Up Next cleared.", true);
   });
-  byId("playPause").addEventListener("click", () => media.paused || media.ended ? playCurrent() : media.pause());
+  const togglePlayback = () => {
+    if (!current()) return;
+    if (media.paused || media.ended) playCurrent();
+    else media.pause();
+  };
+  byId("playPause").addEventListener("click", togglePlayback);
+  media.addEventListener("click", togglePlayback);
   byId("stop").addEventListener("click", () => {
     media.pause();
     try { media.currentTime = 0; } catch (_) {}
