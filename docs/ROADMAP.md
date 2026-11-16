@@ -21,6 +21,17 @@ usable. It will eventually be integrated inside DK Browser, **not now**.
   unsupported formats fall back to time-only preview.
 - Stop resets to emblem and current movie; 3-second cursor hide.
 
+## DK Softworks code license
+
+- New distributions of original DK Softworks-owned material carry the
+  **DK Softworks Original Work License v1.0**: free use by everyone,
+  including businesses, with no sale, paid access, or repackaging for
+  redistribution without written permission.
+- Keep authorship/copyright notices intact. Earlier grants remain valid
+  for releases previously published under those terms.
+- Changes of licensing and ownership must not be silently applied to material
+  DK Softworks does not control.
+
 ## Next: yt-dlp downloads for the *web player*, not standalone desktop
 - GitHub Pages cannot invoke a local executable or run Python. **Do not present a
   fake working Download button.** Implement a stable opt-in bridge contract in the

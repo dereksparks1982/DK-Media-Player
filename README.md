@@ -235,6 +235,15 @@ The complete preservation bundle produced from the supplied archive also retains
 - added Debian package generation;
 - retained the original v0.1.11 application behavior rather than redesigning it.
 
-## License
+## License and free-use policy
 
-DK Media source is released under **GPL-3.0-or-later**. Third-party dependencies retain their own licenses.
+**DK Softworks original code is free to use, including by businesses, but may
+not be sold or repackaged for distribution without written permission.**
+You may use it in business operations without paying a fee. Selling copies,
+charging for access or putting the code into a paid software package is not
+permitted under the new **DK Softworks Original Work License v1.0**.
+
+Read the [LICENSE](LICENSE) file for the precise permissions and restrictions.
+This is a custom source-available license, not a claim that this particular
+no-resale condition is part of the GNU GPL. Previously granted licenses for
+earlier releases are not retroactively withdrawn.
