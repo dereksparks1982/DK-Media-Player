@@ -507,7 +507,7 @@
   }));
   addEventListener("hashchange", () => showPage(location.hash.slice(1)));
   showPage(location.hash.slice(1));
-  for (const id of ["openHeader", "openEmpty", "addQueueFiles"]) {
+  for (const id of ["openEmpty", "addQueueFiles"]) {
     byId(id).addEventListener("click", openLocalFiles);
   }
   byId("filePicker").addEventListener("change", event => {

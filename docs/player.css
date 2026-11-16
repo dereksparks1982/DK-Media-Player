@@ -280,8 +280,8 @@ body {
 .language-select {min-height:42px;max-width:148px;padding:8px 30px 8px 12px;border:1px solid rgba(239,108,100,.44);border-radius:10px;background:#271219;color:#fff;font:inherit;cursor:pointer;}
 .language-select option {background:#271219;color:#fff;}
 @media(max-width:640px){
-  .header-tools{width:100%;justify-content:space-between;gap:8px;}
-  .header-tools #openHeader{flex:0 1 auto;}
+  .header-tools{width:100%;justify-content:flex-end;gap:8px;}
+  
   .language-select{flex:0 0 auto;}
 }
 /* Collapsed top-level sections fit within the video on the first right-click. */

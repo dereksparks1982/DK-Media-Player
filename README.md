@@ -27,7 +27,7 @@ This UI is intentionally reversible: its controls are fully contained in one ded
 
 ### English and Russian interface
 
-The upper-right language selector offers **English** and **Русский**. The selection is
+The upper-right corner contains only the language selector, offering **English** and **Русский**. Media files are opened using the player or playlist's existing file buttons. The selection is
 saved locally in the browser and changes the navigation, player labels, help,
 library, notifications, title, and right-click controls without reloading or
 stopping playback. Local filenames and media audio are not translated.
