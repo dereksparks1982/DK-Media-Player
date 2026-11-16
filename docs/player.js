@@ -9,7 +9,8 @@
     links: "dkmedia.web.links.v1",
     resume: "dkmedia.web.resume.v1",
     volume: "dkmedia.web.volume.v2",
-    lastMedia: "dkmedia.web.last-media.v1"
+    lastMedia: "dkmedia.web.last-media.v1",
+    subtitlePreference: "dkmedia.web.subtitle-preference.v1"
   };
   const read = (key, fallback) => {
     try {
@@ -33,7 +34,14 @@
     queue: [], current: -1, links: Array.isArray(savedLinks) ? savedLinks.filter(x => x && validURL(x.url) && typeof x.name === "string") : [],
     resume: resumeData && typeof resumeData === "object" && !Array.isArray(resumeData) ? resumeData : {},
     subtitleObject: null, subtitleNode: null, lastResumeSave: 0,
-    restoreHandle: null, restorePickerPending: false
+    restoreHandle: null, restorePickerPending: false, stopped: false,
+    subtitlePreference: (() => {
+      const pref = read(store.subtitlePreference, {mode: "off"});
+      return pref && pref.mode === "track" ? {
+        mode: "track", label: String(pref.label || "").slice(0, 200),
+        language: String(pref.language || "").slice(0, 32)
+      } : {mode: "off"};
+    })()
   };
   const current = () => state.queue[state.current] || null;
 
@@ -127,10 +135,50 @@
     if (keys.length > 160) keys.slice(0, keys.length - 160).forEach(key => delete state.resume[key]);
     write(store.resume, state.resume);
   };
+  // Only browser-exposed tracks can be enabled by HTMLMediaElement.
+  const subtitleTracks = () => {
+    try { return Array.from(media.textTracks || []).filter(track =>
+      track.kind === "subtitles" || track.kind === "captions"); }
+    catch (_) { return []; }
+  };
+  const normalizeSubtitleLanguage = value => {
+    const lang = String(value || "").toLowerCase().split("-")[0];
+    return {eng:"en",spa:"es",fre:"fr",fra:"fr",ger:"de",deu:"de",
+      rus:"ru",ita:"it",por:"pt",jpn:"ja"}[lang] || lang;
+  };
+  const updateSubtitleStatus = () => {
+    const showing = subtitleTracks().find(track => track.mode === "showing");
+    const item = current();
+    const detected = item && item.embeddedSubtitles ? item.embeddedSubtitles.length : 0;
+    byId("subtitleLabel").textContent = showing ?
+      "Subtitles: " + (showing.label || showing.language || "On") :
+      detected ? "Subtitles off · " + detected + " embedded MKV track" +
+        (detected === 1 ? "" : "s") + " found" : "Subtitles off";
+  };
+  const applySubtitlePreference = () => {
+    const tracks = subtitleTracks(), pref = state.subtitlePreference;
+    const selection = pref.mode === "track" ?
+      (tracks.find(t => pref.label && t.label === pref.label) ||
+       tracks.find(t => pref.language && normalizeSubtitleLanguage(t.language) ===
+         normalizeSubtitleLanguage(pref.language))) : null;
+    tracks.forEach(track => {
+      try { track.mode = track === selection ? "showing" : "disabled"; }
+      catch (_) { /* Read-only subtitle tracks cannot be changed. */ }
+    });
+    updateSubtitleStatus();
+  };
+  const chooseSubtitleTrack = track => {
+    state.subtitlePreference = track ? {
+      mode: "track", label: String(track.label || ""),
+      language: String(track.language || "")
+    } : {mode: "off"};
+    write(store.subtitlePreference, state.subtitlePreference);
+    applySubtitlePreference();
+  };
   const clearSubtitles = () => {
     if (state.subtitleNode) { state.subtitleNode.remove(); state.subtitleNode = null; }
     if (state.subtitleObject) { URL.revokeObjectURL(state.subtitleObject); state.subtitleObject = null; }
-    byId("subtitleLabel").textContent = "No external subtitles";
+    updateSubtitleStatus();
   };
   const updateButtons = () => {
     const item = current();
@@ -196,13 +244,16 @@
     updateButtons();
   };
   const idle = () => {
-    clearSubtitles();
     state.current = -1;
+    state.stopped = false;
+    clearSubtitles();
     media.pause();
     media.removeAttribute("src");
     media.load();
     screen.classList.add("empty");
-    screen.classList.remove("audio");
+    screen.classList.remove("audio", "stopped", "cursor-hidden", "ui-hidden");
+    byId("emptyTitle").textContent = "Ready when you are";
+    byId("emptyDescription").textContent = "Choose a video or music file from this device, or open a direct stream below.";
     byId("nowTitle").textContent = "Nothing playing";
     byId("nowSource").textContent = "Select media to get started";
     byId("kindBadge").textContent = "Ready";
@@ -211,6 +262,12 @@
   };
   const playCurrent = () => {
     if (!current()) { status("Open a media file or paste a direct video link first."); return; }
+    if (state.stopped) {
+      state.stopped = false;
+      screen.classList.remove("empty", "stopped");
+      screen.classList.toggle("audio", current().audio);
+      try { media.currentTime = 0; } catch (_) {}
+    }
     const result = media.play();
     if (result && typeof result.catch === "function") result.catch(err => {
       if (err && err.name === "NotAllowedError") status("Tap Play to start playback on this device.");
@@ -219,7 +276,8 @@
   };
   const load = (index, autoplay = true) => {
     if (index < 0 || index >= state.queue.length) return;
-    rememberPosition();
+    if (!state.stopped) rememberPosition();
+    state.stopped = false;
     clearSubtitles();
     media.pause();
     state.current = index;
@@ -227,8 +285,9 @@
     rememberSelectedMedia(item);
     media.src = item.src;
     media.load();
-    screen.classList.remove("empty");
+    screen.classList.remove("empty", "stopped");
     screen.classList.toggle("audio", item.audio);
+    applySubtitlePreference();
     screen.classList.remove("ui-hidden", "cursor-hidden");
     byId("nowTitle").textContent = item.name;
     byId("nowSource").textContent = item.kind === "file" ? "Local device · Not uploaded" : item.src;
@@ -258,12 +317,26 @@
     })).filter(entry => fileIsMedia(entry.file));
     if (!accepted.length) { status("No supported media file selected. Choose a video or audio file."); return; }
     const first = state.queue.length;
-    for (const {file, handle} of accepted) state.queue.push({
-      kind: "file", name: file.name, audio: fileIsAudio(file),
-      src: URL.createObjectURL(file), handle,
-      size: file.size, mime: file.type || "",
-      key: "file:" + file.name + ":" + file.size + ":" + file.lastModified
-    });
+    for (const {file, handle} of accepted) {
+      const item = {kind: "file", name: file.name, audio: fileIsAudio(file),
+        src: URL.createObjectURL(file), handle,
+        size: file.size, mime: file.type || "",
+        key: "file:" + file.name + ":" + file.size + ":" + file.lastModified,
+        embeddedSubtitles: [], mkvInspection: "not-mkv"};
+      state.queue.push(item);
+      if (/\.mkv$/i.test(file.name) && window.DKMatroska) {
+        item.mkvInspection = "pending";
+        void window.DKMatroska.inspectFile(file).then(result => {
+          if (!state.queue.includes(item)) return;
+          item.embeddedSubtitles = result.tracks;
+          item.mkvInspection = result.truncated ? "partial" : "complete";
+          if (current() === item) updateSubtitleStatus();
+        }).catch(() => {
+          item.mkvInspection = "unavailable";
+          if (current() === item) updateSubtitleStatus();
+        });
+      }
+    }
     renderQueue();
     if (state.current === -1) load(first, autoplay);
     status("Added " + accepted.length + (accepted.length === 1 ? " file" : " files") + " to the queue.", true);
@@ -554,12 +627,24 @@
       togglePlayback();
     }, 330);
   });
-  byId("stop").addEventListener("click", () => {
+  const stopCurrent = () => {
+    const item = current();
+    if (!item) return;
+    cancelVideoClick();
     media.pause();
+    delete state.resume[item.key];
+    write(store.resume, state.resume);
+    state.stopped = true;
     try { media.currentTime = 0; } catch (_) {}
+    screen.classList.add("empty", "stopped");
+    screen.classList.remove("audio", "ui-hidden", "cursor-hidden");
+    byId("emptyTitle").textContent = "Stopped";
+    byId("emptyDescription").textContent = "Press the red Play button to restart this movie.";
+    keepControlsVisible();
     updateButtons();
     updateTime();
-  });
+  };
+  byId("stop").addEventListener("click", stopCurrent);
   byId("previous").addEventListener("click", () => load(state.current - 1));
   byId("next").addEventListener("click", () => load(state.current + 1));
   byId("seek").addEventListener("input", event => {
@@ -568,6 +653,8 @@
   media.addEventListener("loadedmetadata", () => {
     const item = current();
     if (!item) return;
+    applySubtitlePreference();
+    if (state.stopped) { updateTime(); return; }
     const position = Number(state.resume[item.key] || 0);
     if (position > 2 && Number.isFinite(media.duration) && position < media.duration - 4) {
       try { media.currentTime = position; } catch (_) {}
@@ -584,6 +671,11 @@
   });
   for (const eventName of ["play", "pause", "ended", "emptied"]) media.addEventListener(eventName, updateButtons);
   media.addEventListener("durationchange", updateTime);
+  media.addEventListener("loadeddata", applySubtitlePreference);
+  if (media.textTracks && typeof media.textTracks.addEventListener === "function") {
+    media.textTracks.addEventListener("addtrack", () => setTimeout(applySubtitlePreference, 0));
+    media.textTracks.addEventListener("removetrack", () => setTimeout(applySubtitlePreference, 0));
+  }
   media.addEventListener("ended", () => {
     rememberPosition();
     if (state.current < state.queue.length - 1) load(state.current + 1);
@@ -731,10 +823,8 @@
     try { return Array.from(media.audioTracks || []); }
     catch (_) { return []; }
   };
-  const switchSubtitles = selected => {
-    availableTracks().forEach((track, index) => {
-      track.mode = index === selected ? "showing" : "disabled";
-    });
+  const switchSubtitles = index => {
+    chooseSubtitleTrack(index >= 0 ? subtitleTracks()[index] || null : null);
   };
   const buildContextMenu = () => {
     contextMenu.replaceChildren();
@@ -757,14 +847,28 @@
       }, {checked: Math.abs(media.playbackRate - speed) < 0.01});
     }
     addMenuHeading("Subtitles");
-    const tracks = availableTracks().filter(track => track.kind === "subtitles" || track.kind === "captions");
+    const tracks = subtitleTracks();
     addMenuItem("Subtitles off", () => switchSubtitles(-1),
       {checked: tracks.every(track => track.mode !== "showing")});
-    tracks.forEach(track => {
-      addMenuItem(track.label || track.language || "Subtitle track",
-        () => { availableTracks().forEach(t => { t.mode = t === track ? "showing" : "disabled"; }); },
-        {checked: track.mode === "showing"});
-    });
+    tracks.forEach((track, index) => addMenuItem(
+      track.label || track.language || "Subtitle track " + (index + 1),
+      () => chooseSubtitleTrack(track), {checked: track.mode === "showing"}));
+    const item = current();
+    if (item && item.mkvInspection && item.mkvInspection !== "not-mkv") {
+      const embedded = item.embeddedSubtitles || [];
+      if (embedded.length) {
+        addMenuHeading("MKV embedded tracks (file header)");
+        embedded.forEach(track => {
+          const exposed = tracks.some(t => track.name && t.label === track.name ||
+            track.language && normalizeSubtitleLanguage(t.language) === normalizeSubtitleLanguage(track.language));
+          if (!exposed) addMenuItem((track.name || track.language || "Subtitle") + " · " +
+            track.codec + " · Needs DK Browser", () => {}, {disabled: true,
+              reason: "MKV subtitle track is detected but not exposed for playback by this browser."});
+        });
+      } else if (item.mkvInspection === "pending") {
+        addMenuItem("Checking MKV subtitle tracks…", () => {}, {disabled: true});
+      }
+    }
     addMenuItem("＋ Load SRT / VTT…", () => byId("subtitlePicker").click());
     addMenuHeading("Audio tracks");
     const audios = audioTracks();
@@ -821,7 +925,11 @@
       addDetail("Resolution", media.videoWidth + " × " + media.videoHeight);
     addDetail("Duration", Number.isFinite(media.duration) ? time(media.duration) : "Live / unknown");
     addDetail("Speed", media.playbackRate + "×");
-    addDetail("Subtitles", availableTracks().filter(t => t.kind === "subtitles" || t.kind === "captions").length);
+    addDetail("Browser subtitle tracks", subtitleTracks().length);
+    if (item.mkvInspection && item.mkvInspection !== "not-mkv")
+      addDetail("Detected MKV subtitle tracks", item.embeddedSubtitles.length ?
+        item.embeddedSubtitles.map(t => (t.name || t.language || "Subtitle") + " (" + t.codec + ")").join(", ") :
+        item.mkvInspection === "pending" ? "Scanning…" : "None in inspected header");
     infoPanel.hidden = false;
     keepControlsVisible();
     byId("closeMediaInfo").focus();
@@ -880,12 +988,12 @@
       track.label = file.name;
       track.srclang = "en";
       track.src = state.subtitleObject;
-      track.default = true;
+      track.default = false;
       media.append(track);
       state.subtitleNode = track;
-      track.addEventListener("load", () => { if (track.track) track.track.mode = "showing"; }, {once: true});
-      if (track.track) track.track.mode = "showing";
-      byId("subtitleLabel").textContent = file.name;
+      chooseSubtitleTrack({label: file.name, language: track.srclang});
+      track.addEventListener("load", applySubtitlePreference, {once: true});
+      applySubtitlePreference();
       status("Subtitle track loaded.", true);
     } catch (_) { status("Couldn't read that subtitle file."); }
   });

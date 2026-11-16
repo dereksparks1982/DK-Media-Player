@@ -253,3 +253,17 @@ body {
   .empty-screen .empty-actions .btn { min-height:35px;padding:6px 10px; }
   .empty-screen #restoreMedia { max-width:100%; }
 }
+
+/* Stop restores the idle emblem but keeps the same loaded movie and controls. */
+.screen.stopped > .controls {
+  display:block;
+  opacity:1;
+  visibility:visible;
+  pointer-events:auto;
+  transform:none;
+}
+.screen.stopped .empty-screen {
+  padding-bottom:clamp(92px,14vw,126px);
+  justify-content:center;
+}
+.screen.stopped #restoreMedia,.screen.stopped #openEmpty { display:none !important; }

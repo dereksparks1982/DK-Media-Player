@@ -20,4 +20,6 @@ The DK Media Player web app is currently developed independently of DK Browser.
 - **Playback formats:** codec support depends on the user's browser. HEVC,
   Matroska and protected playback require separate runtime validation.
 
+- **Embedded MKV subtitles:** The web player can inspect the track metadata in the header of a selected local MKV without copying or uploading the video, but it cannot switch or render tracks that Firefox does not expose through `textTracks`. DK Browser needs native Matroska demuxing, subtitle codec support (SRT/UTF-8, ASS/SSA, PGS), a subtitle-track selection API and permanent user-approved access to a chosen Movies/TV folder. No automatic reading of arbitrary filesystem paths.
+
 No DK Browser repository changes were made for this web player update.

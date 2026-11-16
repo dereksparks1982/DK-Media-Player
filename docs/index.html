@@ -13,13 +13,14 @@
 <link rel="icon" href="./icons/favicon.ico" sizes="any">
 <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png">
 <link rel="apple-touch-icon" sizes="180x180" href="./icons/dk-media-player-180.png">
-<link rel="stylesheet" href="./player.css?v=20261116-6">
-<script src="./player.js?v=20261116-6" defer></script>
+<link rel="stylesheet" href="./player.css?v=20261116-7">
+<script src="./mkv-tracks.js?v=20261116-1" defer></script>
+<script src="./player.js?v=20261116-7" defer></script>
 </head>
 <body>
 <div class="shell">
 <header class="topbar">
-<a class="brand" href="./" aria-label="DK Media Player home"><img class="brandmark" src="./icons/dk-media-player-128.png" width="45" height="45" alt="" decoding="async"><span class="brandname">DK MEDIA PLAYER<small>WEB EDITION</small></span></a>
+<a class="brand" href="./" aria-label="DK Media Player home"><img class="brandmark" src="./icons/dk-media-player-128.png" width="45" height="45" alt="" decoding="async"><span class="brandname">DK MEDIA PLAYER</span></a>
 <nav class="nav" aria-label="Main navigation">
 <button type="button" data-nav="player" aria-current="page">Player</button>
 <button type="button" data-nav="library">Library</button>
@@ -29,7 +30,6 @@
 </header>
 <main>
 <section class="page" id="page-player">
-<div class="section-heading"><div><div class="eyebrow">Original DK Media · Browser Edition</div><h1>Media Player</h1></div><p>Your videos and music, on your device.</p></div>
 <div class="main-grid">
 <div>
 <div class="panel">
@@ -37,7 +37,7 @@
 <video id="media" playsinline preload="metadata" aria-label="Selected video"></video>
 <div id="volumeOverlay" class="volume-overlay" aria-live="off" aria-hidden="true">Volume 100%</div>
 <div class="audio-art" aria-hidden="true">♫</div>
-<div class="empty-screen"><div class="empty-icon" aria-hidden="true"><img src="./images/golden-emblem.png" alt="" width="256" height="144" decoding="async"></div><h2>Ready when you are</h2><p>Choose a video or music file from this device, or open a direct stream below.</p><div class="empty-actions"><button type="button" class="btn primary" id="openEmpty">Open files</button><button type="button" class="btn ghost" id="restoreMedia" hidden>Restore last file</button></div><p id="restoreHint" class="file-hint" hidden></p><p class="file-hint">You can also drag media files onto this window.</p></div>
+<div class="empty-screen"><div class="empty-icon" aria-hidden="true"><img src="./images/golden-emblem.png" alt="" width="256" height="144" decoding="async"></div><h2 id="emptyTitle">Ready when you are</h2><p id="emptyDescription">Choose a video or music file from this device, or open a direct stream below.</p><div class="empty-actions"><button type="button" class="btn primary" id="openEmpty">Open files</button><button type="button" class="btn ghost" id="restoreMedia" hidden>Restore last file</button></div><p id="restoreHint" class="file-hint" hidden></p><p class="file-hint">You can also drag media files onto this window.</p></div>
 <div class="controls" id="screenControls" aria-label="Playback controls">
 <div class="seek-row"><time id="currentTime">0:00</time><input id="seek" class="range" type="range" min="0" max="1000" value="0" step="1" aria-label="Playback position" disabled><time id="duration">0:00</time></div>
 <div class="buttons-row">
@@ -66,8 +66,8 @@
 <div class="panel info-card"><h2>Play files on this device</h2><p>Choose one or several media files. They play in your browser and are not uploaded. In browsers supporting persistent file handles, the last opened file can reopen after permission is granted. In Firefox and other browsers using the ordinary file picker, Restore last file asks you to choose the same file again and restores its saved position.</p></div>
 <div class="panel info-card"><h2>Play remote video</h2><p>Paste a direct, publicly reachable media URL. The server must permit streaming, and the file must use a codec your browser understands. GitHub Pages does not host or expose videos on your Linux computer.</p></div>
 <div class="panel info-card"><h2>Library and resume</h2><p>Save direct URLs to the Library to reopen later. Watched positions and saved links are stored only in this browser. They do not automatically sync to your other devices.</p></div>
-<div class="panel info-card"><h2>Subtitles</h2><p>Load your own WebVTT (.vtt) or SubRip (.srt) subtitle file for the currently playing video. Built-in subtitle tracks depend on the browser and media format.</p></div>
-<div class="panel info-card"><h2>On-screen controls</h2><p>Move the pointer over the movie to reveal the seek bar and playback controls, YouTube-style. They fade while playing and stay visible when paused. Double-click the picture for fullscreen; Esc exits. Right-click the video to open playback speed, subtitles, available audio tracks and chapters, aspect ratio, fullscreen, and media information. Unavailable browser track options are labeled rather than simulated. Space/K: play/pause; arrows: seek or volume; F: fullscreen; M: mute.</p></div>
+<div class="panel info-card"><h2>Subtitles</h2><p>Subtitles are off by default. Select a browser-supported subtitle track in the right-click menu or load SRT/VTT manually. Subtitle language preferences are remembered. For local MKV files, the player detects embedded subtitle track metadata, but the browser must still be able to decode the tracks. Full MKV subtitle playback is planned for DK Browser.</p></div>
+<div class="panel info-card"><h2>On-screen controls</h2><p>Stop displays the golden emblem again and Play restarts the same movie from the beginning. Move the pointer over the movie to reveal the seek bar and playback controls, YouTube-style. They fade while playing and stay visible when paused. Double-click the picture for fullscreen; Esc exits. Right-click the video to open playback speed, subtitles, available audio tracks and chapters, aspect ratio, fullscreen, and media information. Unavailable browser track options are labeled rather than simulated. Space/K: play/pause; arrows: seek or volume; F: fullscreen; M: mute.</p></div>
 <div class="panel info-card"><h2>iPhone and iPad</h2><p>Use Safari or another browser to select a local file or open a direct media URL. You can add this site to your Home Screen. iOS supports HLS streams natively; other codecs vary by device.</p></div>
 </div>
 <p class="fineprint">DK Media Player is free software. This web player runs independently in your browser, using video formats supported by that browser.</p>
