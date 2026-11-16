@@ -179,7 +179,7 @@
     if (wasCurrent) rememberPosition();
     const old = state.queue.splice(index, 1)[0];
     if (wasCurrent) {
-      if (state.queue.length) load(Math.min(index, state.queue.length - 1), false);
+      if (state.queue.length) { state.current = -1; load(Math.min(index, state.queue.length - 1), false); }
       else idle();
     } else {
       if (index < state.current) state.current--;
