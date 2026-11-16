@@ -211,6 +211,7 @@
   const queueArt = window.DKQueueArtwork && window.DKQueueArtwork.create({
     makeVideo: () => document.createElement("video"),
     makeCanvas: () => document.createElement("canvas"),
+    metadataCover: file => window.DKMatroskaCover ? window.DKMatroskaCover.extract(file) : null,
     isActive: item => state.queue.includes(item),
     onReady: item => {
       const display = queueThumbs.get(item);
@@ -352,7 +353,9 @@
       renderQueue();
     }
     if (old.kind === "file") URL.revokeObjectURL(old.src);
-    if (old.thumbnail) old.thumbnail = null;
+    if (old.thumbnailBlob && old.thumbnail) URL.revokeObjectURL(old.thumbnail);
+    old.file = null;
+    old.thumbnail = null;
   };
   const addFiles = (files, handles = [], autoplay = true) => {
     const accepted = Array.from(files || []).map((file, index) => ({
@@ -362,7 +365,7 @@
     const first = state.queue.length;
     for (const {file, handle} of accepted) {
       const item = {kind: "file", name: file.name, audio: fileIsAudio(file),
-        src: URL.createObjectURL(file), handle,
+        src: URL.createObjectURL(file), file, handle,
         size: file.size, mime: file.type || "",
         key: "file:" + file.name + ":" + file.size + ":" + file.lastModified,
         embeddedSubtitles: [], mkvInspection: "not-mkv"};
@@ -583,7 +586,12 @@
   byId("clearQueue").addEventListener("click", () => {
     // Clearing Up Next should not interrupt the episode currently on screen.
     const old = state.queue.splice(state.current + 1);
-    old.forEach(item => { if (item.kind === "file") URL.revokeObjectURL(item.src); });
+    old.forEach(item => {
+      if (item.kind === "file") URL.revokeObjectURL(item.src);
+      if (item.thumbnailBlob && item.thumbnail) URL.revokeObjectURL(item.thumbnail);
+      item.file = null;
+      item.thumbnail = null;
+    });
     renderQueue();
     status("Up Next cleared.", true);
   });

@@ -376,3 +376,17 @@ body {
 @media(max-width:640px){
  .queue .queue-artwork{width:76px;height:46px;flex-basis:76px}
 }
+
+/* Add Files is the playlist's primary action. Leave its existing position,
+   text, dimensions and neighbouring Clear Queue control unchanged. */
+.sidebar-footer #addQueueFiles {
+  background:#d83a42;
+  border-color:#f4515c;
+  color:#fff;
+  font-weight:750;
+}
+.sidebar-footer #addQueueFiles:hover,
+.sidebar-footer #addQueueFiles:focus-visible {
+  background:#ef434d;
+  border-color:#ff8387;
+}

@@ -1,44 +1,19 @@
-/* Local-only queue artwork: derive small frame thumbnails from user-selected
-   blob URLs. No network access, no uploads, no persistent thumbnail cache. */
+/* DK Media Player: bounded local queue artwork extraction.
+   Try an optional embedded Matroska cover, then a muted video frame.
+   No uploads, remote requests, thumbnail services or persistent caches. */
 (function(root,factory){
- const api=factory();
- if(typeof module!=="undefined"&&module.exports)module.exports=api;
- else root.DKQueueArtwork=api;
+  const api=factory();
+  if(typeof module!=="undefined"&&module.exports)module.exports=api;
+  else root.DKQueueArtwork=api;
 })(typeof window!=="undefined"?window:globalThis,function(){
  "use strict";
- const MAX_WIDTH=160,MAX_HEIGHT=90;
- function eligible(item){
-   return !!(item&&item.kind==="file"&&!item.audio&&
-     typeof item.src==="string"&&item.src.startsWith("blob:"));
- }
- function create({makeVideo,makeCanvas,onReady,isActive}){
-   const requested=new WeakSet(),work=[];
-   let active=false;
-   const next=async()=>{
-     if(active)return;
-     active=true;
-     while(work.length){
-       const item=work.shift();
-       if(!isActive(item))continue;
-       try{
-         const picture=await capture(item.src,{makeVideo,makeCanvas});
-         if(picture&&isActive(item)){
-           item.thumbnail=picture;
-           onReady(item);
-         }
-       }catch(_){/* Unsupported codecs retain the placeholder. */}
-     }
-     active=false;
-   };
-   return {request(item){
-     if(!eligible(item)||requested.has(item))return false;
-     requested.add(item);work.push(item);void next();return true;
-   }};
- }
+ const MAX_WIDTH=160, MAX_HEIGHT=90, MAX_WORKERS=3;
+ const eligible=item=>!!(item&&item.kind==="file"&&!item.audio&&
+   typeof item.src==="string"&&item.src.startsWith("blob:"));
  function capture(src,{makeVideo,makeCanvas}){
    return new Promise(resolve=>{
      const video=makeVideo();
-     let complete=false,timer=null;
+     let complete=false, timer=null, seekPending=false;
      const finish=picture=>{
        if(complete)return;
        complete=true;
@@ -47,33 +22,72 @@
        resolve(picture);
      };
      const draw=()=>{
-       if(complete||!video.videoWidth||!video.videoHeight||video.readyState<2)return;
+       if(complete||seekPending||!video.videoWidth||!video.videoHeight||
+          video.readyState<2)return;
        try{
          const canvas=makeCanvas();
-         const ratio=Math.min(MAX_WIDTH/video.videoWidth,MAX_HEIGHT/video.videoHeight);
-         canvas.width=Math.max(1,Math.round(video.videoWidth*ratio));
-         canvas.height=Math.max(1,Math.round(video.videoHeight*ratio));
+         const scale=Math.min(MAX_WIDTH/video.videoWidth,MAX_HEIGHT/video.videoHeight);
+         canvas.width=Math.max(1,Math.round(video.videoWidth*scale));
+         canvas.height=Math.max(1,Math.round(video.videoHeight*scale));
          const context=canvas.getContext("2d");
          if(!context){finish(null);return;}
          context.drawImage(video,0,0,canvas.width,canvas.height);
          finish(canvas.toDataURL("image/jpeg",.72));
        }catch(_){finish(null);}
      };
-     video.muted=true;video.preload="auto";video.playsInline=true;
+     video.muted=true;video.defaultMuted=true;
+     video.preload="auto";video.playsInline=true;
      video.addEventListener("error",()=>finish(null),{once:true});
-     video.addEventListener("seeked",draw);
+     video.addEventListener("seeked",()=>{seekPending=false;draw();});
      video.addEventListener("loadeddata",draw);
      video.addEventListener("loadedmetadata",()=>{
-       try{
-         const duration=video.duration;
-         if(Number.isFinite(duration)&&duration>4)
-           video.currentTime=Math.min(5,Math.max(1,duration*.1));
-         else if(video.readyState>=2)draw();
-       }catch(_){finish(null);}
+       if(complete)return;
+       const duration=video.duration;
+       if(Number.isFinite(duration)&&duration>4){
+         seekPending=true;
+         try{video.currentTime=Math.min(15,Math.max(2,duration*.1));}
+         catch(_){seekPending=false;draw();}
+       }else draw();
      },{once:true});
-     timer=setTimeout(()=>finish(null),4500);
+     timer=setTimeout(()=>finish(null),5500);
      try{video.src=src;video.load();}catch(_){finish(null);}
    });
  }
- return {eligible,create,capture};
+ function create({makeVideo,makeCanvas,onReady,isActive,metadataCover,workers=MAX_WORKERS}){
+   const pending=new WeakSet(), jobs=[];
+   let busy=0;
+   const pump=()=>{
+     while(busy<Math.max(1,Math.min(3,workers)) && jobs.length){
+       const item=jobs.shift();
+       if(!isActive(item))continue;
+       busy++;
+       void (async()=>{
+         let cover=null;
+         try{
+           if(metadataCover&&item.file&&/\.mkv$/i.test(item.file.name))
+             cover=await metadataCover(item.file);
+           if(cover && !isActive(item)){
+             if(typeof URL!=="undefined")URL.revokeObjectURL(cover);
+             cover=null;
+           }
+           const picture=cover || await capture(item.src,{makeVideo,makeCanvas});
+           if(isActive(item)&&picture){
+             item.thumbnail=picture;
+             item.thumbnailBlob=!!cover;
+             onReady(item);
+           }else if(cover && typeof URL!=="undefined"){
+             URL.revokeObjectURL(cover);
+           }
+         }catch(_){
+           if(cover&&typeof URL!=="undefined")URL.revokeObjectURL(cover);
+         }finally{busy--;pump();}
+       })();
+     }
+   };
+   return {request(item){
+     if(!eligible(item)||pending.has(item))return false;
+     pending.add(item);jobs.push(item);pump();return true;
+   }};
+ }
+ return {eligible,capture,create};
 });

@@ -126,3 +126,11 @@ assert.match(js, /DKQueueArtwork\.create/);
 assert.match(js, /DKQueueHover\.create/);
 assert.match(css, /\.queue \.queue-artwork/);
 assert.match(css, /\.queue \.queue-hover-video/);
+
+/* Cover metadata and multiple independent decoders reduce alternating gaps. */
+assert.match(html, /src="\.\/mkv-cover\.js\?/);
+assert.match(js, /DKMatroskaCover\.extract\(file\)/);
+assert.match(js, /src: URL\.createObjectURL\(file\), file, handle/);
+assert.match(js, /thumbnailBlob && item\.thumbnail/);
+assert.match(css, /\.sidebar-footer #addQueueFiles/);
+assert.match(css, /background:#d83a42/);

@@ -61,6 +61,21 @@ never paused or scrubbed. Remote streams and unsupported video codecs retain
 the normal icon instead of performing speculative background requests.
 No thumbnails are uploaded, synchronized or persistently saved.
 
+### Thumbnail reliability and poster metadata
+
+The queue now creates **up to three previews concurrently** instead of waiting
+for every earlier movie's frame decode to finish before starting the next one.
+For locally selected MKV files it first checks for a small, embedded JPEG,
+PNG or WebP `cover.jpg` / `poster.jpg` / `folder.jpg` attachment in the
+first 8 MiB of container metadata (maximum 512 KiB per image). If no cover is
+available, it tries to capture a frame. Supported files can therefore have
+real artwork even where the browser cannot decode their video frames. Files
+with neither readable artwork nor decodable frames retain a play icon;
+the application never invents an external movie poster or sends videos away.
+
+**Add Files** is now the red primary action in the Up Next footer, without
+moving the button or changing Clear Queue.
+
 ### Timeline hover preview
 
 The web player's seek bar now displays a timestamp while hovering, focusing, or dragging. For **local video files**, a second muted, paused HTML video lazily seeks to show a thumbnail without changing the playing video's position. Browsers that cannot decode a separate frame and remote streams without a local blob show a time-only preview; no background remote URL fetch is initiated. Works within normal and fullscreen controls. Touch interaction gets a time hint when scrubbing; no video upload or persistent thumbnail storage.
