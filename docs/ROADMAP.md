@@ -6,6 +6,13 @@ standalone-desktop work. The web player's controls and playback remain independe
 usable. It will eventually be integrated inside DK Browser, **not now**.
 
 ## Implemented in web source
+- Episode artwork lookup now tolerates punctuation/spacing differences
+  (including Butt-Head / Butthead), Sxx.Exx numbering, retries transient
+  provider errors, and falls back to verified series posters. Each thumbnail
+  exposes its lookup status and the playlist retries once automatically.
+- Debugging priority: verify real browser/network image delivery against
+  actual episode filenames and check CDN, API errors, and CORS restrictions.
+
 - English/Russian interface, red Play control and original DK poster/emblem.
 - Full Up Next playlist (including watched episodes); red rectangle marks the
   active video and advances as playback moves. Existing removal X is red.

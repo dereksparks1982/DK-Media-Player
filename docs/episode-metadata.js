@@ -26,7 +26,7 @@
  }
  function parseFilename(name){
    const text=cleanTitle(name);
-   const tv=/(?:^|[\s-])(?:s(\d{1,2})e(\d{1,3})|(\d{1,2})x(\d{1,3}))(?=$|[\s-])/i.exec(text);
+   const tv=/(?:^|[\s-])(?:s(\d{1,2})[\s-]*e(\d{1,3})|(\d{1,2})[\s-]*x[\s-]*(\d{1,3}))(?=$|[\s-])/i.exec(text);
    if(tv){
      let series=text.slice(0,tv.index).replace(/[\s:-]+$/,"").trim();
      const yearMatch=/\s+((?:19|20)\d{2})$/.exec(series);
@@ -49,14 +49,18 @@
  }
  function findShow(info,values){
    const norm=normalize(info.series);
-   const entries=(Array.isArray(values)?values:[]).filter(x=>x&&x.show&&
-     typeof x.show.name==="string");
+   const compact=value=>normalize(value).replace(/\s+/g,"");
+   const entries=(Array.isArray(values)?values:[]).filter(x=>x?.show&&
+     typeof x.show.name==="string"&&Number.isSafeInteger(x.show.id));
    const exact=entries.filter(x=>normalize(x.show.name)===norm);
+   // Jellyfin-style robust normalization: "Butt-Head", "Butthead" and
+   // "Butt.Head" should be one candidate, not three unrelated TV shows.
+   const collapsed=entries.filter(x=>compact(x.show.name)===compact(norm));
    const tail=entries.filter(x=>{
      const name=normalize(x.show.name);
      return norm.length>=11 && (name.endsWith(" "+norm)||norm.endsWith(" "+name));
    });
-   const candidate=exact.length?exact:tail;
+   const candidate=exact.length?exact:collapsed.length?collapsed:tail;
    if(info.year){
      const dated=candidate.filter(x=>String(x.show.premiered||"").slice(0,4)===String(info.year));
      if(dated.length===1)return dated[0].show;
@@ -91,26 +95,36 @@
    // documented rate limit. Requests for a series share in-flight promises.
    function request(url,headers={}){
      const task=gate.catch(()=>{}).then(async()=>{
-       const wait=Math.max(0,650-(Date.now()-lastRequest));
-       if(wait)await sleep(wait);
-       lastRequest=Date.now();
-       if(!fetchJSON) return null;
-       const opts={method:"GET",mode:"cors",credentials:"omit",headers};
-       const controller=typeof AbortController!=="undefined"?new AbortController():null;
-       let timer;
-       if(controller){
-         opts.signal=controller.signal;
-         timer=setTimeout(()=>controller.abort(),9000);
-       }
-       try{
-         const response=await fetchJSON(url,opts);
-         if(!response||!response.ok)return null;
-         if(typeof response.text==="function"){
-           const raw=await response.text();
-           return raw.length<=MAX_BODY?JSON.parse(raw):null;
+       if(!fetchJSON)return null;
+       // Retry temporary network errors and rate limits. Never retry
+       // permanent 404 responses or a provider's rejected credentials.
+       for(let attempt=0;attempt<3;attempt++){
+         const wait=Math.max(0,650-(Date.now()-lastRequest));
+         if(wait)await sleep(wait);
+         lastRequest=Date.now();
+         const opts={method:"GET",mode:"cors",credentials:"omit",headers};
+         const controller=typeof AbortController!=="undefined"?new AbortController():null;
+         let timer;
+         if(controller){
+           opts.signal=controller.signal;
+           timer=setTimeout(()=>controller.abort(),10000);
          }
-         return typeof response.json==="function"?await response.json():null;
-       }catch(_){return null}finally{clearTimeout(timer);}
+         try{
+           const response=await fetchJSON(url,opts);
+           const status=Number(response?.status)||0;
+           if(response?.ok){
+             if(typeof response.text==="function"){
+               const raw=await response.text();
+               return raw.length<=MAX_BODY?JSON.parse(raw):null;
+             }
+             return typeof response.json==="function"?await response.json():null;
+           }
+           if(status!==429&&(status<500||status>=600))return null;
+         }catch(_){/* Network outage or timeout; try again below. */}
+         finally{clearTimeout(timer);}
+         if(attempt<2)await sleep(1000*(attempt+1));
+       }
+       return null;
      });
      gate=task.then(()=>undefined,()=>undefined);
      return task;
@@ -121,18 +135,31 @@
        searchTV.set(key,request(TV+"/search/shows?q="+encodeURIComponent(info.series))
          .then(list=>findShow(info,list)));
      }
-     const show=await searchTV.get(key);
+     let show=await searchTV.get(key);
+     // A compact alternate query helps with dot-separated and unhyphenated
+     // filenames, without accepting an ambiguous result.
+     if(!show){
+       const compact=info.series
+         .replace(/\bbutt[\s-]*head\b/ig,"Butt-Head")
+         .replace(/\bjudges\b/ig,"Judge's");
+       if(compact!==info.series){
+         const alt=await request(TV+"/search/shows?q="+encodeURIComponent(compact));
+         show=findShow(info,alt);
+       }
+     }
      if(!show||!Number.isSafeInteger(show.id)||show.id<=0)return null;
      if(!episodesTV.has(show.id))
        episodesTV.set(show.id,request(TV+"/shows/"+show.id+"/episodes"));
      const episodes=await episodesTV.get(show.id);
      const episode=(Array.isArray(episodes)?episodes:[]).find(x=>
        x&&x.season===info.season&&x.number===info.episode);
-     if(!episode)return null;
-     const still=allowedImage(episode.image?.medium||episode.image?.original,"TVmaze");
+     // The show's own art is a safe fallback if an episode still is absent
+     // or an episode list cannot be retrieved. Never fabricate an image.
      const series=allowedImage(show.image?.medium||show.image?.original,"TVmaze");
-     return {still,series,title:episode.name||"",show:show.name||"",
-       provider:"TVmaze",credit:allowedCredit(episode.url||show.url,"TVmaze")||
+     if(!episode&&!series)return null;
+     const still=allowedImage(episode?.image?.medium||episode?.image?.original,"TVmaze");
+     return {still,series,title:episode?.name||"",show:show.name||"",
+       provider:"TVmaze",credit:allowedCredit(episode?.url||show.url,"TVmaze")||
          "https://www.tvmaze.com"};
    }
    function tmdbImage(path,size){
@@ -189,7 +216,8 @@
        data.still?{url:data.still,kind:"Thumb"}:
        data.series?{url:data.series,kind:"Thumb"}:null;
      return picked?{url:picked.url,kind:picked.kind,provider:data.provider,
-       credit:data.credit,title:data.title}:null;
+       credit:data.credit,title:data.title,
+       fallbackUrl:data.series&&data.series!==picked.url?data.series:null}:null;
    }
    async function find(filename){
      if(!enabled())return null;

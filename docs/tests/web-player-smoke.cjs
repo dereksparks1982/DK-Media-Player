@@ -147,3 +147,17 @@ assert.match(js, /byId\("rewind10"\)\.addEventListener\("click", \(\) => skipTen
 assert.match(js, /byId\("forward10"\)\.addEventListener\("click", \(\) => skipTen\(10\)\)/);
 assert.match(js, /Math\.max\(0, Math\.min\(media\.duration, media\.currentTime \+ delta\)\)/);
 assert.match(css, /\.screen \.controls \.skip-ten/);
+
+/* Episode art recovery: public metadata, visible diagnostics, cache-busted JS. */
+const metaSource=fs.readFileSync(path.join(root, "episode-metadata.js"), "utf8");
+const artUI=fs.readFileSync(path.join(root, "metadata-ui.js"), "utf8");
+new Function(metaSource);new Function(artUI);
+assert.match(html, /episode-metadata\.js\?v=20261116-2/);
+assert.match(html, /metadata-ui\.js\?v=20261116-2/);
+assert.match(metaSource, /const collapsed=entries\.filter/);
+assert.match(metaSource, /status!==429/);
+assert.match(metaSource, /const series=allowedImage\(show\.image/);
+assert.match(metaSource, /fallbackUrl:data\.series/);
+assert.match(artUI, /scheduleRetry/);
+assert.match(artUI, /dataset\.artworkStatus/);
+assert.match(artUI, /image\.onerror=/);

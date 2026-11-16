@@ -61,6 +61,32 @@ never paused or scrubbed. Remote streams and unsupported video codecs retain
 the normal icon instead of performing speculative background requests.
 No thumbnails are uploaded, synchronized or persistently saved.
 
+### Episode-artwork matching and recovery refinements
+
+Automatic artwork now recognizes more real-world season/episode filename
+patterns, including `S01.E04`, `S01E04`, and `1x04`. The TVmaze title
+matcher tolerates spacing and punctuation differences such as
+`Mike.Judges.Beavis.and.Butthead` versus `Mike Judge's Beavis and Butt-Head`
+without accepting ambiguous series matches. Queries continue sending
+**only a parsed show title and episode numbers**, never media bytes.
+
+Temporary TVmaze request failures (rate limiting, 5xx and network problems)
+are retried up to two additional times with a bounded delay. If a specific
+episode image is not present, the matching TV series poster may be displayed;
+if an episode image fails to load, the card tries the series image. The
+playlist makes one additional automatic retry for an unmatched image after
+a short delay, grouping retry work across queued episodes. Artwork tiles
+now expose a tooltip reporting the lookup state and reason an image is
+missing. A failed lookup no longer permanently blocks new attempts.
+
+Images may still be unavailable if a provider has no artwork, the browser
+cannot reach its API or CDN, or the file lacks an identifiable episode code.
+The player keeps the plain play icon in those cases instead of inventing
+title-card artwork. No video content is uploaded, and playback remains
+unaffected. Tests cover the actual Beavis and Butt-Head title discrepancy,
+request failure/retry, series fallback, and simulated image-load recovery.
+Artwork code is source-tested but still requires real browser verification.
+
 ### Real TV episode images, Jellyfin image-selection code and ten-second seeking
 
 **Up Next shows real artwork, not text-filled filename cards.** For a local file
