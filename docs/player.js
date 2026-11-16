@@ -468,7 +468,24 @@
     else media.pause();
   };
   byId("playPause").addEventListener("click", togglePlayback);
-  media.addEventListener("click", togglePlayback);
+  // Wait briefly before treating a video click as play/pause. Otherwise the
+  // first click of a double-click pauses the film just before fullscreen.
+  let pendingVideoClick = null;
+  const cancelVideoClick = () => {
+    if (pendingVideoClick !== null) {
+      clearTimeout(pendingVideoClick);
+      pendingVideoClick = null;
+    }
+  };
+  media.addEventListener("click", event => {
+    if (!current()) return;
+    if (event.detail > 1) { cancelVideoClick(); return; }
+    cancelVideoClick();
+    pendingVideoClick = setTimeout(() => {
+      pendingVideoClick = null;
+      togglePlayback();
+    }, 330);
+  });
   byId("stop").addEventListener("click", () => {
     media.pause();
     try { media.currentTime = 0; } catch (_) {}
@@ -556,14 +573,48 @@
       else if (current()) await media.requestPictureInPicture();
     } catch (_) { status("Picture in picture isn't available for this video or browser."); }
   });
-  byId("fullscreen").addEventListener("click", async () => {
+  const updateFullscreenButton = () => {
+    const fullscreen = document.fullscreenElement === screen ||
+      Boolean(media.webkitDisplayingFullscreen);
+    const button = byId("fullscreen");
+    button.setAttribute("aria-label", fullscreen ? "Exit fullscreen" : "Fullscreen");
+    button.title = fullscreen ? "Exit fullscreen" : "Fullscreen";
+    button.setAttribute("aria-pressed", String(fullscreen));
+  };
+  const toggleFullscreen = async () => {
+    if (!current()) return;
     try {
-      if (document.fullscreenElement) await document.exitFullscreen();
-      else if (typeof screen.requestFullscreen === "function") await screen.requestFullscreen();
-      else if (typeof media.webkitEnterFullscreen === "function" && current()) media.webkitEnterFullscreen();
-      else status("Fullscreen isn't available in this browser.");
-    } catch (_) { status("Fullscreen isn't available for this video."); }
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else if (media.webkitDisplayingFullscreen &&
+                 typeof media.webkitExitFullscreen === "function") {
+        media.webkitExitFullscreen();
+      } else if (typeof screen.requestFullscreen === "function") {
+        await screen.requestFullscreen();
+      } else if (typeof media.webkitEnterFullscreen === "function") {
+        // iOS may use native video fullscreen instead of fullscreen elements.
+        media.webkitEnterFullscreen();
+      } else {
+        status("Fullscreen isn't available in this browser.");
+      }
+    } catch (_) {
+      status("Fullscreen isn't available for this video.");
+    }
+    updateFullscreenButton();
+  };
+  byId("fullscreen").addEventListener("click", () => { void toggleFullscreen(); });
+  // Double-click anywhere in the picture, including its black sidebars, to
+  // enter/leave fullscreen without interrupting video playback.
+  screen.addEventListener("dblclick", event => {
+    if (!current() || current().audio) return;
+    event.preventDefault();
+    cancelVideoClick();
+    void toggleFullscreen();
   });
+  document.addEventListener("fullscreenchange", updateFullscreenButton);
+  media.addEventListener("webkitbeginfullscreen", updateFullscreenButton);
+  media.addEventListener("webkitendfullscreen", updateFullscreenButton);
+  updateFullscreenButton();
   byId("addSubtitles").addEventListener("click", () => byId("subtitlePicker").click());
   byId("subtitlePicker").addEventListener("change", async event => {
     const file = event.target.files && event.target.files[0];
@@ -604,6 +655,7 @@
     if (key === "arrowright" && Number.isFinite(media.duration)) media.currentTime = Math.min(media.duration, media.currentTime + 5);
   });
   window.addEventListener("pagehide", () => {
+    cancelVideoClick();
     rememberPosition();
     clearSubtitles();
     state.queue.forEach(item => { if (item.kind === "file") URL.revokeObjectURL(item.src); });
