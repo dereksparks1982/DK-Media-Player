@@ -7,9 +7,11 @@
 This identifies the present project or its stewardship; it does not change existing licenses, copyright holders, original creators, or historical credits.
 
 
-Preservation release of **DK Media v0.1.11**, the original Linux DK Media application before the project expanded into the later media-suite/console line.
+**Current development: DK Media Player is web-only.** The active player runs from `docs/` through GitHub Pages. It will later become part of DK Browser; no new standalone desktop player is being developed.
 
-DK Media is a Python/Tkinter desktop media player built around VLC/libVLC. This repository keeps the original Player, Library, yt-dlp and P2P functions while adding portable Linux launch/install packaging so the historical build can actually be run on a modern Ubuntu/Debian system.
+The repository also contains preserved legacy **DK Media v0.1.11** desktop-era source and documentation, which are historical artifacts, not today's product direction.
+
+The old Python/Tkinter/libVLC code and its former yt-dlp/P2P modules remain untouched for preservation. Current feature development targets the web player only; video downloading will require an explicitly enabled browser/native or optional private service bridge because GitHub Pages cannot run yt-dlp.
 
 ## Web player
 
@@ -41,6 +43,27 @@ translation does not add codecs to Firefox.
 
 The picture-in-picture and fullscreen controls use matching SVG icons with
 the same 36-pixel hit area and vertically centered alignment.
+
+### Up Next playlist, thumbnails and motion previews
+
+The **Up Next** panel keeps the complete loaded playlist, including already
+watched items, rather than deleting or hiding each finished episode. A bright
+**red rectangular outline** identifies the currently playing movie and moves
+to the next video automatically when playback advances. The existing X on
+each item is now **red** and manually removes exactly that item. Previously
+watched episodes remain available to revisit.
+
+For locally selected videos, the queue generates small, temporary frame
+thumbnails in the browser when the format is decodable. Resting the pointer
+on a local video item plays a muted, short looping motion preview inside its
+thumbnail; moving away stops the preview immediately. The playing film is
+never paused or scrubbed. Remote streams and unsupported video codecs retain
+the normal icon instead of performing speculative background requests.
+No thumbnails are uploaded, synchronized or persistently saved.
+
+### Timeline hover preview
+
+The web player's seek bar now displays a timestamp while hovering, focusing, or dragging. For **local video files**, a second muted, paused HTML video lazily seeks to show a thumbnail without changing the playing video's position. Browsers that cannot decode a separate frame and remote streams without a local blob show a time-only preview; no background remote URL fetch is initiated. Works within normal and fullscreen controls. Touch interaction gets a time hint when scrubbing; no video upload or persistent thumbnail storage.
 
 ### Subtitle loading refinements
 

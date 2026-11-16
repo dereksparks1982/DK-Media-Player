@@ -319,3 +319,60 @@ body {
   border-top:1px solid rgba(255,255,255,.13);
   border-radius:0;padding-top:11px;margin-top:4px;
 }
+
+/* Lightweight preview over the seek bar: a second, muted paused decoder is
+   lazy-loaded only for local files. It never scrubs the playing media. */
+.screen .controls .seek-track{position:relative;flex:1 1 auto;min-width:0;display:flex;align-items:center}
+.screen .controls .seek-track #seek{width:100%;flex:1 1 auto}
+.screen .controls .seek-preview{
+  position:absolute;z-index:12;bottom:calc(100% + 12px);left:50%;
+  transform:translateX(-50%);pointer-events:none;min-width:65px;
+  border:1px solid rgba(255,169,163,.65);border-radius:9px;
+  padding:6px 8px;background:rgba(15,13,20,.97);color:#fff;
+  text-align:center;font-variant-numeric:tabular-nums;
+  box-shadow:0 8px 30px rgba(0,0,0,.75);
+}
+.screen .controls .seek-preview.has-frame{width:160px;max-width:100%}
+.screen .controls .seek-preview video{
+  display:block;position:relative;inset:auto;width:100%;height:auto;
+  max-width:100%;aspect-ratio:16/9;object-fit:contain;
+  background:#000;cursor:default;pointer-events:none;opacity:1;
+  margin:0 0 4px;border-radius:4px;
+}
+.screen .controls .seek-preview video[hidden]{display:none!important}
+.screen.fit-cover .seek-preview video{object-fit:contain!important}
+.screen .controls .seek-preview span{display:block;font-size:.75rem;font-weight:700;white-space:nowrap}
+@media(max-width:640px){
+ .screen .controls .seek-preview.has-frame{width:min(145px,100%)}
+}
+
+/* Full Up Next history: moving red box around the active video.
+   Reuse the existing X button; make only its colour red. */
+.queue li.current {
+  outline:2px solid #e13a42;
+  outline-offset:-2px;
+  background:rgba(145,20,27,.30);
+}
+.queue li.current .item-play { color:#fff; }
+.queue .icon-btn.remove { color:#ff5a62; font-weight:800; }
+.queue .icon-btn.remove:hover,
+.queue .icon-btn.remove:focus-visible { color:#fff; background:#b92430; }
+
+/* The queued item's artwork is separate from its button label. The playing
+   file is not affected by a thumbnail or a muted hover preview. */
+.queue .item-play{align-items:center}
+.queue .queue-artwork{
+  position:relative;display:flex;align-items:center;justify-content:center;
+  width:90px;height:54px;flex:0 0 90px;overflow:hidden;
+  background:#09090f;border:1px solid rgba(255,255,255,.14);
+  border-radius:7px;color:#e79090;font-size:1.25rem;
+}
+.queue .queue-artwork-image,.queue .queue-hover-video{
+  position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+}
+.queue .queue-artwork-image[hidden]{display:none!important}
+.queue .queue-hover-video{z-index:2;pointer-events:none;background:#08090a}
+.queue .item-title{max-width:100%;line-height:1.35}
+@media(max-width:640px){
+ .queue .queue-artwork{width:76px;height:46px;flex-basis:76px}
+}

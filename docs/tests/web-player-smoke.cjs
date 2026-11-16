@@ -99,3 +99,30 @@ assert.match(html, /src="\.\/subtitle-text\.js\?/);
 assert.match(js, /DKSubtitleText\.toWebVTT\(await file\.text\(\), file\.name\)/);
 assert.match(css, /background-position:right 17px center/);
 assert.match(css, /appearance:none;-webkit-appearance:none/);
+
+/* YouTube-style hover preview is separate from the playing media. */
+assert.match(html, /id="seekPreview"/);
+assert.match(html, /id="previewFrame"/);
+assert.match(html, /src="\.\/seek-preview\.js\?/);
+assert.match(js, /DKSeekPreview\.attach/);
+assert.match(js, /seekPreview\.reset\(\)/);
+assert.match(css, /\.seek-preview\.has-frame/);
+
+/* Full queue keeps watched entries; red marker advances with playback.
+   Reuse the existing red X for manual removal. */
+assert.match(js, /const pending = state\.queue/);
+assert.match(js, /if \(index === state\.current\)/);
+assert.match(js, /li\.classList\.add\("current"\)/);
+assert.match(js, /li\.setAttribute\("aria-current", "true"\)/);
+assert.match(js, /const remove = document\.createElement\("button"\)/);
+assert.match(js, /remove\.textContent = "×"/);
+assert.match(js, /media\.addEventListener\("ended"/);
+assert.match(js, /load\(state\.current \+ 1\)/);
+assert.match(css, /\.queue li\.current/);
+assert.match(css, /\.queue \.icon-btn\.remove \{ color:#ff5a62/);
+assert.match(html, /src="\.\/queue-artwork\.js\?/);
+assert.match(html, /src="\.\/queue-hover\.js\?/);
+assert.match(js, /DKQueueArtwork\.create/);
+assert.match(js, /DKQueueHover\.create/);
+assert.match(css, /\.queue \.queue-artwork/);
+assert.match(css, /\.queue \.queue-hover-video/);

@@ -204,22 +204,57 @@
     byId("seek").disabled = !current() || !seekable;
     byId("seek").value = seekable ? String(Math.max(0, Math.min(1000, Math.round(1000 * media.currentTime / length)))) : "0";
   };
+  const queueThumbs = new WeakMap();
+  const queueHover = window.DKQueueHover && window.DKQueueHover.create({
+    makeVideo: () => document.createElement("video")
+  });
+  const queueArt = window.DKQueueArtwork && window.DKQueueArtwork.create({
+    makeVideo: () => document.createElement("video"),
+    makeCanvas: () => document.createElement("canvas"),
+    isActive: item => state.queue.includes(item),
+    onReady: item => {
+      const display = queueThumbs.get(item);
+      if (display && item.thumbnail) {
+        display.thumb.src = item.thumbnail;
+        display.thumb.hidden = false;
+        display.icon.hidden = true;
+      }
+    }
+  });
   const renderQueue = () => {
+    if (queueHover) queueHover.stop();
     queueView.replaceChildren();
-    // The current video is not an upcoming video; keep it out of Up Next.
-    const nextIndex = state.current + 1;
-    const pending = state.queue.slice(nextIndex);
+    // Preserve the full play history. The red current-item marker advances
+    // when an episode ends; watched items remain until manually removed.
+    const pending = state.queue;
     byId("queueCount").textContent = pending.length ? pending.length + (pending.length === 1 ? " item" : " items") : "";
-    pending.forEach((item, offset) => {
-      const index = nextIndex + offset;
+    pending.forEach((item, index) => {
       const li = document.createElement("li");
+      if (index === state.current) {
+        li.classList.add("current");
+        li.setAttribute("aria-current", "true");
+      }
       const play = document.createElement("button");
       play.type = "button";
       play.className = "item-play";
       play.title = "Play " + item.name;
+      const artworkBox = document.createElement("span");
+      artworkBox.className = "queue-artwork";
+      artworkBox.setAttribute("aria-hidden", "true");
       const icon = document.createElement("span");
+      icon.className = "queue-artwork-fallback";
       icon.textContent = item.audio ? "♫" : "▶";
-      icon.setAttribute("aria-hidden", "true");
+      const thumb = document.createElement("img");
+      thumb.className = "queue-artwork-image";
+      thumb.alt = "";
+      thumb.decoding = "async";
+      thumb.hidden = !item.thumbnail;
+      if (item.thumbnail) thumb.src = item.thumbnail;
+      artworkBox.append(icon, thumb);
+      icon.hidden = !thumb.hidden;
+      queueThumbs.set(item, {thumb, icon});
+      if (queueArt) queueArt.request(item);
+      if (queueHover) queueHover.bind(play, item, artworkBox);
       const labels = document.createElement("span");
       labels.style.minWidth = "0";
       const title = document.createElement("span");
@@ -229,7 +264,7 @@
       source.className = "item-meta";
       source.textContent = item.kind === "file" ? "Local file" : "Remote URL";
       labels.append(title, source);
-      play.append(icon, labels);
+      play.append(artworkBox, labels);
       play.addEventListener("click", () => load(index));
       const remove = document.createElement("button");
       remove.type = "button";
@@ -244,6 +279,7 @@
     updateButtons();
   };
   const idle = () => {
+    if (seekPreview) seekPreview.reset();
     state.current = -1;
     state.stopped = false;
     clearSubtitles();
@@ -260,6 +296,11 @@
     renderQueue();
     updateTime();
   };
+  const seekPreview = window.DKSeekPreview && window.DKSeekPreview.attach({
+    seek: byId("seek"), bubble: byId("seekPreview"), frame: byId("previewFrame"),
+    label: byId("previewTime"), current, duration: () => media.duration,
+    formatTime: time
+  });
   const playCurrent = () => {
     if (!current()) { status("Open a media file or paste a direct video link first."); return; }
     if (state.stopped) {
@@ -276,6 +317,7 @@
   };
   const load = (index, autoplay = true) => {
     if (index < 0 || index >= state.queue.length) return;
+    if (seekPreview) seekPreview.reset();
     if (!state.stopped) rememberPosition();
     state.stopped = false;
     clearSubtitles();
@@ -310,6 +352,7 @@
       renderQueue();
     }
     if (old.kind === "file") URL.revokeObjectURL(old.src);
+    if (old.thumbnail) old.thumbnail = null;
   };
   const addFiles = (files, handles = [], autoplay = true) => {
     const accepted = Array.from(files || []).map((file, index) => ({
@@ -628,6 +671,7 @@
     }, 330);
   });
   const stopCurrent = () => {
+    if (seekPreview) seekPreview.reset();
     const item = current();
     if (!item) return;
     cancelVideoClick();
