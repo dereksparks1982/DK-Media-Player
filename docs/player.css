@@ -82,7 +82,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:disabled{cursor:no
 html { background:#110407; }
 body {
   background:linear-gradient(180deg,rgba(16,3,6,.34),rgba(15,3,5,.7)),
-    url("./soviet-cinema.svg") center center / cover fixed no-repeat #1b0508;
+    url("./images/soviet-poster.png") center center / cover fixed no-repeat #1b0508;
 }
 .topbar {
   background:rgba(22,5,9,.82);
@@ -205,4 +205,51 @@ body {
 }
 @media(prefers-reduced-motion:reduce) {
   .screen > .controls { transition:none; }
+}
+
+/* The approved poster decorates the page, never the film itself. */
+.empty-screen {
+  z-index:2;
+  padding:clamp(9px,2.2vw,24px);
+  gap:clamp(6px,1.3vw,12px);
+  background:radial-gradient(circle at center,#1a1013 0%,#050406 75%);
+  overflow-y:auto;
+  overflow-x:hidden;
+  overscroll-behavior:contain;
+  scrollbar-width:thin;
+}
+.empty-icon {
+  display:flex;flex:none;align-items:center;justify-content:center;
+  width:min(260px,45%);height:clamp(68px,15vw,168px);
+  margin:0;line-height:1;
+}
+.empty-icon img { display:block;width:100%;height:100%;object-fit:contain; }
+.empty-screen h2,.empty-screen > p { flex:none;max-width:min(100%,440px);line-height:1.35; }
+.empty-screen .empty-actions {
+  display:flex;align-items:center;justify-content:center;
+  flex-wrap:wrap;gap:10px;flex:none;width:100%;max-width:100%;
+}
+.empty-screen #restoreMedia {
+  display:block;min-width:0;max-width:min(100%,490px);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:0 1 auto;
+}
+.empty-screen #restoreMedia[hidden] { display:none !important; }
+.empty-screen .file-hint { max-width:100%;overflow-wrap:anywhere; }
+/* The menu is a floating sibling of the controls, not inside their layout. */
+.screen > .controls { contain:layout; }
+.player-context-menu,.media-info { position:absolute; }
+.screen .controls #playPause {
+  background:#d82e3c;border:1px solid #fd5965;border-radius:11px;
+  color:#fff;box-shadow:0 1px 10px #0007;
+}
+.screen .controls #playPause:hover { background:#ff4350;color:#fff; }
+.screen.cursor-hidden,.screen.cursor-hidden video,
+.screen.cursor-hidden .audio-art,.screen.cursor-hidden .controls { cursor:none !important; }
+@media(max-width:640px) {
+  .empty-screen { justify-content:flex-start;padding:9px 12px;gap:5px; }
+  .empty-icon { width:min(120px,32%);height:72px; }
+  .empty-screen h2 { font-size:1rem; }
+  .empty-screen > p { font-size:.75rem; }
+  .empty-screen .empty-actions .btn { min-height:35px;padding:6px 10px; }
+  .empty-screen #restoreMedia { max-width:100%; }
 }

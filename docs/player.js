@@ -141,7 +141,6 @@
     ["playPause", "stop"].forEach(id => { byId(id).disabled = !item; });
     byId("previous").disabled = state.current <= 0;
     byId("next").disabled = state.current < 0 || state.current >= state.queue.length - 1;
-    byId("saveCurrent").disabled = !item || item.kind !== "url";
     byId("clearQueue").disabled = state.current >= 0 ? state.current >= state.queue.length - 1 : state.queue.length === 0;
     byId("addSubtitles").disabled = !item;
     const muted = media.muted || volumePercent === 0;
@@ -230,7 +229,7 @@
     media.load();
     screen.classList.remove("empty");
     screen.classList.toggle("audio", item.audio);
-    screen.classList.remove("ui-hidden");
+    screen.classList.remove("ui-hidden", "cursor-hidden");
     byId("nowTitle").textContent = item.name;
     byId("nowSource").textContent = item.kind === "file" ? "Local device · Not uploaded" : item.src;
     byId("kindBadge").textContent = item.kind === "file" ? "LOCAL" : "STREAM";
@@ -377,17 +376,6 @@
     status("Direct media URL added. If playback fails, check the source and format.", true);
     byId("urlName").value = "";
   };
-  const saveCurrentURL = () => {
-    const item = current();
-    if (!item || item.kind !== "url") { status("Only direct media URLs can be saved. Local files stay on your device."); return; }
-    const existing = state.links.findIndex(link => link.url === item.src);
-    if (existing !== -1) state.links.splice(existing, 1);
-    state.links.unshift({url: item.src, name: item.name});
-    state.links = state.links.slice(0, 100);
-    write(store.links, state.links);
-    renderLibrary();
-    status("Saved to your browser's Library.", true);
-  };
   const renderLibrary = () => {
     libraryView.replaceChildren();
     byId("clearLibrary").disabled = state.links.length === 0;
@@ -470,7 +458,6 @@
     event.preventDefault();
     addUrl(byId("urlInput").value, byId("urlName").value);
   });
-  byId("saveCurrent").addEventListener("click", saveCurrentURL);
   byId("clearLibrary").addEventListener("click", () => {
     if (!state.links.length || !confirm("Remove all saved links from this browser?")) return;
     state.links = [];
@@ -518,6 +505,27 @@
   screen.addEventListener("pointerleave", () => {
     if (!media.paused && current() && !menuOpen) revealControls();
   });
+  // Cursor auto-hide works with fullscreen and normal player dimensions.
+  let cursorIdleTimer = null;
+  const showCursor = () => {
+    screen.classList.remove("cursor-hidden");
+    clearTimeout(cursorIdleTimer);
+    if (!current() || menuOpen || !infoPanel.hidden) return;
+    cursorIdleTimer = setTimeout(() => {
+      if (!current() || menuOpen || !infoPanel.hidden ||
+          !screen.matches(":hover") || controls.matches(":hover") ||
+          controls.contains(document.activeElement)) return;
+      screen.classList.add("cursor-hidden");
+    }, 3000);
+  };
+  screen.addEventListener("pointermove", showCursor);
+  screen.addEventListener("pointerenter", showCursor);
+  screen.addEventListener("pointerdown", showCursor);
+  screen.addEventListener("pointerleave", () => {
+    clearTimeout(cursorIdleTimer);
+    screen.classList.remove("cursor-hidden");
+  });
+  document.addEventListener("fullscreenchange", showCursor);
   controls.addEventListener("focusin", keepControlsVisible);
   controls.addEventListener("focusout", revealControls);
   for (const eventName of ["play", "pause", "ended", "emptied"]) {
@@ -904,6 +912,7 @@
   window.addEventListener("pagehide", () => {
     cancelVideoClick();
     clearTimeout(hideControlsTimer);
+    clearTimeout(cursorIdleTimer);
     rememberPosition();
     clearSubtitles();
     state.queue.forEach(item => { if (item.kind === "file") URL.revokeObjectURL(item.src); });

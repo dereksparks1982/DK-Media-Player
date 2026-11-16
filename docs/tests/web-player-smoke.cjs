@@ -35,8 +35,21 @@ assert.ok(html.indexOf('id="screenControls"') < html.indexOf('class="now-playing
 assert.match(css, /\.screen > \.controls\s*\{/);
 assert.match(css, /\.screen\.ui-hidden > \.controls/);
 assert.match(css, /\.player-context-menu\s*\{/);
-assert.match(css, /soviet-cinema\.svg/);
+assert.match(css, /images\/soviet-poster\.png/);
 assert.match(js, /screen\.addEventListener\("contextmenu"/);
 assert.match(js, /addMenuItem\("Subtitles off"/);
 assert.match(js, /Track selection not exposed by this browser/);
 assert.match(js, /addMenuItem\("Media information"/);
+
+assert.match(html, /src="\.\/images\/golden-emblem\.png"/);
+assert.match(html, /src="\.\/icons\/dk-media-player-128\.png"/);
+assert.doesNotMatch(html, /id="saveCurrent"|Save URL to Library/);
+assert.doesNotMatch(js, /byId\("saveCurrent"\)/);
+assert.match(css, /\.screen \.controls #playPause\s*\{/);
+assert.match(css, /background:#d82e3c/);
+assert.match(css, /\.screen\.cursor-hidden/);
+assert.match(js, /cursorIdleTimer = setTimeout/);
+assert.match(js, /\}, 3000\)/);
+assert.match(js, /screen\.addEventListener\("pointermove", showCursor\)/);
+assert.match(html, /<\/div>\s*<\/div>\s*<div id="playerContextMenu"/);
+assert.match(html, /id="mediaInfoDetails"><\/dl><\/div>\s*<\/div>\s*<div class="now-playing"/);
