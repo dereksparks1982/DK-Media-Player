@@ -34,3 +34,45 @@ button,input,select{font:inherit}button{cursor:pointer}button:disabled{cursor:no
   max-height:none;
   object-fit:contain;
 }
+
+/* Respect the hidden attribute even on flex-styled buttons. */
+[hidden] { display:none !important; }
+
+/* Normal player video must fill its frame, not shrink to 64% of viewport
+   height and leave an oversized surrounding black rectangle. */
+.screen video {
+  position:absolute;
+  inset:0;
+  display:block;
+  width:100%;
+  height:100%;
+  min-height:0;
+  max-width:none;
+  max-height:none;
+  object-fit:contain;
+}
+.screen:fullscreen,
+.screen:-webkit-full-screen {
+  width:100vw;
+  height:100vh;
+  min-height:0;
+  max-width:none;
+  max-height:none;
+  aspect-ratio:auto;
+}
+.screen:fullscreen video,
+.screen:-webkit-full-screen video {
+  width:100%;
+  height:100%;
+  max-height:none;
+  object-fit:contain;
+}
+
+/* A level, red speaker that matches the app's controls, not an emoji. */
+.volume-icon-button { color:var(--accent); }
+.volume-icon-button .speaker-icon { display:block; width:24px; height:24px; }
+.volume-icon-button .speaker-off { display:none; }
+.volume-icon-button.is-muted .speaker-waves { display:none; }
+.volume-icon-button.is-muted .speaker-off { display:block; }
+#volumeValue { min-width:3.6em; color:var(--accent2); font-size:.8rem;
+               font-weight:750; font-variant-numeric:tabular-nums; text-align:right; }

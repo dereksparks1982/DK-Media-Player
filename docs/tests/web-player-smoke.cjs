@@ -1,0 +1,27 @@
+/* DK Media Player web-only source checks. Run: node docs/tests/web-player-smoke.cjs */
+"use strict";
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+const root = path.resolve(__dirname, "..");
+const js = fs.readFileSync(path.join(root, "player.js"), "utf8");
+const css = fs.readFileSync(path.join(root, "player.css"), "utf8");
+const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
+new Function(js);
+assert.match(js, /screen\.addEventListener\("dblclick"/);
+assert.match(js, /const toggleFullscreen = async/);
+assert.match(js, /await openLocalFiles\(false\)/);
+assert.match(js, /state\.restorePickerPending/);
+assert.match(js, /"temporary-file"/);
+assert.match(js, /createMediaElementSource\(media\)/);
+assert.match(js, /volumeGain\.gain\.value/);
+assert.match(js, /volumePercent \/ 100/);
+assert.match(js, /Math\.min\(200,/);
+assert.match(html, /id="volume" min="0" max="200"/);
+assert.match(html, /class="speaker-icon"/);
+assert.match(html, /id="volumeValue"/);
+assert.doesNotMatch(html, /id="mute"[^>]*>🔊/);
+assert.match(css, /\[hidden\]\s*\{\s*display:none\s*!important/);
+assert.match(css, /\.screen video\s*\{[^}]*max-height:none/);
+assert.match(css, /\.volume-icon-button\s*\{\s*color:var\(--accent\)/);
+console.log("PASS: web player source checks");

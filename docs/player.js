@@ -8,7 +8,7 @@
   const store = {
     links: "dkmedia.web.links.v1",
     resume: "dkmedia.web.resume.v1",
-    volume: "dkmedia.web.volume.v1",
+    volume: "dkmedia.web.volume.v2",
     lastMedia: "dkmedia.web.last-media.v1"
   };
   const read = (key, fallback) => {
@@ -32,7 +32,8 @@
   const state = {
     queue: [], current: -1, links: Array.isArray(savedLinks) ? savedLinks.filter(x => x && validURL(x.url) && typeof x.name === "string") : [],
     resume: resumeData && typeof resumeData === "object" && !Array.isArray(resumeData) ? resumeData : {},
-    subtitleObject: null, subtitleNode: null, lastResumeSave: 0
+    subtitleObject: null, subtitleNode: null, lastResumeSave: 0,
+    restoreHandle: null, restorePickerPending: false
   };
   const current = () => state.queue[state.current] || null;
 
@@ -143,8 +144,10 @@
     byId("saveCurrent").disabled = !item || item.kind !== "url";
     byId("clearQueue").disabled = state.current >= 0 ? state.current >= state.queue.length - 1 : state.queue.length === 0;
     byId("addSubtitles").disabled = !item;
-    byId("mute").textContent = media.muted || media.volume === 0 ? "🔇" : "🔊";
-    byId("mute").setAttribute("aria-label", media.muted ? "Unmute" : "Mute");
+    const muted = media.muted || volumePercent === 0;
+    byId("mute").classList.toggle("is-muted", muted);
+    byId("mute").setAttribute("aria-label", muted ? "Unmute" : "Mute");
+    byId("mute").title = muted ? "Unmute" : "Mute";
   };
   const updateTime = () => {
     const length = media.duration;
@@ -267,7 +270,10 @@
 
   // The Chromium picker returns persistent file handles. Firefox and other
   // browsers retain the standard file-input fallback, which is session-only.
-  const openLocalFiles = async () => {
+  const openLocalFiles = async (autoplay = true) => {
+    // DOM click events are passed to this handler by the ordinary Open buttons.
+    if (typeof autoplay !== "boolean") autoplay = true;
+    state.restorePickerPending = !autoplay;
     if (typeof window.showOpenFilePicker !== "function") {
       byId("filePicker").click();
       return;
@@ -282,7 +288,7 @@
         } catch (_) { /* Continue opening remaining files. */ }
       }
       if (selected.length) addFiles(selected.map(item => item.file),
-                                    selected.map(item => item.handle));
+                                    selected.map(item => item.handle), autoplay);
       else status("No readable video or audio file was selected.");
     } catch (error) {
       if (error && error.name === "AbortError") return;
@@ -290,6 +296,13 @@
     }
   };
 
+  const showRestoreChoice = (saved, hint) => {
+    const button = byId("restoreMedia");
+    button.textContent = "Restore " + (saved.name || "last file");
+    button.hidden = false;
+    byId("restoreHint").textContent = hint;
+    byId("restoreHint").hidden = false;
+  };
   const restoreLastMedia = async () => {
     const saved = read(store.lastMedia, null);
     if (!saved || state.queue.length) return;
@@ -303,8 +316,13 @@
       status("Last stream restored. Press Play to resume.", true);
       return;
     }
-    if (saved.kind !== "file") return;
+    if (saved.kind !== "file" && saved.kind !== "temporary-file") return;
+    // Firefox and other file-input browsers cannot silently reopen a file.
+    // Keep a useful one-click path to select it again and recover its position.
+    showRestoreChoice(saved, "Choose the same file again to resume where you stopped.");
+    if (saved.kind === "temporary-file") return;
     try {
+      await handleWrites;
       const handle = await storedHandle("read");
       if (!handle || typeof handle.getFile !== "function" || state.queue.length) return;
       state.restoreHandle = handle;
@@ -317,31 +335,30 @@
         addFiles([file], [handle], false);
         status("Last local file restored. Press Play to resume.", true);
       } else {
-        byId("restoreMedia").textContent = "Restore " + (saved.name || "last file");
-        byId("restoreMedia").hidden = false;
-        byId("restoreHint").textContent = "Your last file is remembered. Restore it to allow access again.";
-        byId("restoreHint").hidden = false;
+        showRestoreChoice(saved, "Allow access or select the same file again to resume.");
       }
     } catch (_) {
-      status("The saved file is unavailable. Open it again to reconnect.");
+      showRestoreChoice(saved, "The saved file could not be reopened. Select it again.");
     }
   };
   byId("restoreMedia").addEventListener("click", async () => {
+    if (state.queue.length) return;
     const handle = state.restoreHandle;
-    if (!handle || state.queue.length) return;
-    try {
-      const permission = await handle.requestPermission({mode: "read"});
-      if (permission !== "granted") {
-        status("Access wasn't granted. You can choose the file again.");
-        return;
-      }
-      const file = await handle.getFile();
-      if (state.queue.length) return;
-      addFiles([file], [handle], false);
-      status("File restored. Press Play to resume.", true);
-    } catch (_) {
-      status("Could not reopen the saved file. Open it again to reconnect.");
+    if (handle) {
+      try {
+        const permission = typeof handle.requestPermission === "function" ?
+          await handle.requestPermission({mode: "read"}) : "prompt";
+        if (permission === "granted") {
+          const file = await handle.getFile();
+          if (state.queue.length) return;
+          addFiles([file], [handle], false);
+          status("File restored. Press Play to resume.", true);
+          return;
+        }
+      } catch (_) { /* Fall back to the normal file picker below. */ }
     }
+    status("Choose your previously opened file to restore its saved position.");
+    await openLocalFiles(false);
   });
   const titleFromUrl = url => {
     try {
@@ -431,7 +448,10 @@
     byId(id).addEventListener("click", openLocalFiles);
   }
   byId("filePicker").addEventListener("change", event => {
-    addFiles(event.target.files);
+    const autoplay = !state.restorePickerPending;
+    state.restorePickerPending = false;
+    if (event.target.files && event.target.files.length)
+      addFiles(event.target.files, [], autoplay);
     event.target.value = "";
   });
   for (const eventName of ["dragenter", "dragover"]) screen.addEventListener(eventName, event => {
@@ -531,40 +551,85 @@
     updateButtons();
   });
   let volumeOverlayTimer = null;
+  const savedVolumeV2 = read(store.volume, null);
+  const legacyVolume = Number(read("dkmedia.web.volume.v1", 1));
+  // Older releases stored native media.volume as a decimal from 0 to 1.
+  let volumePercent = savedVolumeV2 === null ? Math.round(legacyVolume * 100) :
+    Number(savedVolumeV2);
+  if (!Number.isFinite(volumePercent)) volumePercent = 100;
+  volumePercent = Math.max(0, Math.min(200, Math.round(volumePercent)));
+  let audioContext = null;
+  let volumeGain = null;
+  const resumeAudioContext = () => {
+    if (audioContext && audioContext.state === "suspended") {
+      audioContext.resume().catch(() => {});
+    }
+  };
+  const enableAudioBoost = () => {
+    if (volumeGain) { resumeAudioContext(); return true; }
+    const AudioEngine = window.AudioContext || window.webkitAudioContext;
+    if (!AudioEngine) return false;
+    try {
+      audioContext = new AudioEngine();
+      const source = audioContext.createMediaElementSource(media);
+      volumeGain = audioContext.createGain();
+      source.connect(volumeGain);
+      volumeGain.connect(audioContext.destination);
+      resumeAudioContext();
+      return true;
+    } catch (_) {
+      volumeGain = null;
+      return false;
+    }
+  };
+  const applyVolume = () => {
+    // Native element volume tops out at 1.0. Web Audio supplies real gain
+    // above that, instead of merely changing the number in the slider.
+    if (volumeGain) {
+      media.volume = 1;
+      volumeGain.gain.value = media.muted ? 0 : volumePercent / 100;
+    } else {
+      media.volume = Math.min(volumePercent, 100) / 100;
+    }
+    byId("volume").value = String(volumePercent);
+    byId("volumeValue").textContent = (media.muted ? 0 : volumePercent) + "%";
+    updateButtons();
+  };
   const showVolumeOverlay = () => {
     const overlay = byId("volumeOverlay");
-    overlay.textContent = "Volume " + (media.muted ? 0 : Math.round(media.volume * 100)) + "%";
+    overlay.textContent = "Volume " + (media.muted ? 0 : volumePercent) + "%";
     overlay.classList.add("visible");
     clearTimeout(volumeOverlayTimer);
     volumeOverlayTimer = setTimeout(() => overlay.classList.remove("visible"), 950);
   };
   const setVolume = percent => {
+    let next = Math.max(0, Math.min(200, Math.round(Number(percent))));
+    if (!Number.isFinite(next)) return;
+    if (next > 100 && !enableAudioBoost()) {
+      next = 100;
+      status("Audio boost isn't available in this browser. Normal volume is still supported.");
+    }
+    volumePercent = next;
     media.muted = false;
-    media.volume = Math.max(0, Math.min(1, Math.round(percent) / 100));
-    byId("volume").value = String(Math.round(media.volume * 100));
-    write(store.volume, media.volume);
-    updateButtons();
+    applyVolume();
+    write(store.volume, volumePercent);
     showVolumeOverlay();
   };
   screen.addEventListener("wheel", event => {
     if (!current() || !event.deltaY) return;
-    // Limit the wheel gesture to the player surface, not page scrolling.
     event.preventDefault();
-    const next = Math.round(media.volume * 100) + (event.deltaY < 0 ? 5 : -5);
-    setVolume(next);
+    setVolume(volumePercent + (event.deltaY < 0 ? 5 : -5));
   }, {passive: false});
 
-  const initialVolume = Number(read(store.volume, 1));
-  media.volume = Number.isFinite(initialVolume) ? Math.max(0, Math.min(1, initialVolume)) : 1;
-  byId("volume").value = String(Math.round(media.volume * 100));
-  byId("volume").addEventListener("input", event => {
-    setVolume(Number(event.target.value));
-  });
+  if (volumePercent > 100 && !enableAudioBoost()) volumePercent = 100;
+  applyVolume();
+  byId("volume").addEventListener("input", event => setVolume(event.target.value));
   byId("mute").addEventListener("click", () => {
     media.muted = !media.muted;
-    updateButtons();
+    applyVolume();
     showVolumeOverlay();
   });
+  media.addEventListener("play", resumeAudioContext);
   byId("rate").addEventListener("change", event => { media.playbackRate = Number(event.target.value); });
   if (!document.pictureInPictureEnabled || typeof media.requestPictureInPicture !== "function") byId("pip").hidden = true;
   byId("pip").addEventListener("click", async () => {
@@ -647,15 +712,18 @@
     const tag = event.target && event.target.tagName;
     if (["INPUT", "TEXTAREA", "SELECT", "BUTTON"].includes(tag) || byId("page-player").hidden || !current()) return;
     const key = event.key.toLowerCase();
-    if ([" ", "k", "arrowleft", "arrowright", "f", "m"].includes(key)) event.preventDefault();
+    if ([" ", "k", "arrowleft", "arrowright", "arrowup", "arrowdown", "f", "m"].includes(key)) event.preventDefault();
     if (key === " " || key === "k") byId("playPause").click();
     if (key === "f") byId("fullscreen").click();
     if (key === "m") byId("mute").click();
+    if (key === "arrowup") setVolume(volumePercent + 5);
+    if (key === "arrowdown") setVolume(volumePercent - 5);
     if (key === "arrowleft" && Number.isFinite(media.duration)) media.currentTime = Math.max(0, media.currentTime - 5);
     if (key === "arrowright" && Number.isFinite(media.duration)) media.currentTime = Math.min(media.duration, media.currentTime + 5);
   });
   window.addEventListener("pagehide", () => {
     cancelVideoClick();
+    if (audioContext) void audioContext.close().catch(() => {});
     rememberPosition();
     clearSubtitles();
     state.queue.forEach(item => { if (item.kind === "file") URL.revokeObjectURL(item.src); });
