@@ -19,6 +19,12 @@ The web player is published from `docs/` through GitHub Pages and works on deskt
 
 Web player development is currently independent of both the earlier desktop edition and DK Browser development. GitHub Pages does not stream movies stored on your home computer by itself: remote playback requires a reachable media URL and a browser-supported codec. Local files remain on your device, and saved links do not automatically synchronize across browsers. Firefox and browsers without the required file APIs continue using the standard session-only file input. The former above-100% boost has been removed following reports of audio skipping; saved boosted volumes are clamped to 100% on load. DK Browser development remains separate. No codec or DRM support is added by the player webpage itself.
 
+### Web player interface
+
+The web player has a **Soviet-era cinema poster background** drawn as a vector asset in `docs/soviet-cinema.svg`. Its functional video area stays black and unfiltered. **YouTube-style seek and playback controls** now overlay the bottom of the movie and fade while playing, returning on pointer movement, pause or focus. Right-clicking the video opens a custom keyboard-accessible context menu for play/pause, queue navigation, speed, SRT/VTT loading and browser-exposed subtitle/audio tracks, chapters when tracks are available, aspect-ratio fitting, picture-in-picture, fullscreen and basic media information (name, duration, resolution, file size when known). Unavailable audio-track selection is visibly disabled rather than claimed to work.
+
+This UI is intentionally reversible: its controls are fully contained in one dedicated source commit, and its background is an independent SVG asset. Local video is never uploaded or duplicated. Expanded title/poster/series metadata discovery requires a separate implementation and provider selection.
+
 ## DK Browser integration
 
 [DK Browser](https://github.com/dereksparks1982/dkbrowser) is the separate full Chromium source fork. Its startup/home defaults open this web player. This page implements local file-handle persistence and volume controls without a browser plugin; local file handles stay within the browser's own IndexedDB origin storage. You can delete stored site data to remove those handles. Browser permission prompts are respected.

@@ -26,3 +26,17 @@ assert.match(css, /\[hidden\]\s*\{\s*display:none\s*!important/);
 assert.match(css, /\.screen video\s*\{[^}]*max-height:none/);
 assert.match(css, /\.volume-icon-button\s*\{\s*color:var\(--accent\)/);
 console.log("PASS: web player source checks");
+
+assert.match(html, /id="screenControls"/);
+assert.match(html, /id="playerContextMenu"/);
+assert.match(html, /id="mediaInfo"/);
+assert.ok(html.indexOf('id="screenControls"') < html.indexOf('class="now-playing"'),
+  "seek and controls should be inside the video frame");
+assert.match(css, /\.screen > \.controls\s*\{/);
+assert.match(css, /\.screen\.ui-hidden > \.controls/);
+assert.match(css, /\.player-context-menu\s*\{/);
+assert.match(css, /soviet-cinema\.svg/);
+assert.match(js, /screen\.addEventListener\("contextmenu"/);
+assert.match(js, /addMenuItem\("Subtitles off"/);
+assert.match(js, /Track selection not exposed by this browser/);
+assert.match(js, /addMenuItem\("Media information"/);

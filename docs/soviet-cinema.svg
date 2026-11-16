@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
+<title>DK Media Player Soviet cinema-inspired backdrop</title>
+<defs>
+  <linearGradient id="red" x1="0" y1="0" x2="1" y2="1">
+    <stop stop-color="#370006"/><stop offset=".52" stop-color="#8a0714"/><stop offset="1" stop-color="#270004"/>
+  </linearGradient>
+  <radialGradient id="glow" cx=".54" cy=".22" r=".67">
+    <stop stop-color="#e54322" stop-opacity=".55"/><stop offset=".62" stop-color="#63000c" stop-opacity=".18"/><stop offset="1" stop-color="#030205" stop-opacity=".64"/>
+  </radialGradient>
+  <filter id="grain" x="0" y="0" width="100%" height="100%">
+    <feTurbulence type="fractalNoise" baseFrequency=".35" numOctaves="2" seed="16" stitchTiles="stitch"/>
+    <feColorMatrix type="saturate" values="0"/>
+    <feComponentTransfer><feFuncA type="linear" slope=".13"/></feComponentTransfer>
+  </filter>
+  <pattern id="engrave" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(35)">
+    <path d="M0 0V7" stroke="#f0b571" stroke-opacity=".095" stroke-width="1"/>
+  </pattern>
+</defs>
+<rect width="1600" height="900" fill="url(#red)"/>
+<g><path d="M800 115 L3074.2 -228.7 L3095.1 -34.4Z" fill="#8a0008" opacity=".18"/>
+<path d="M800 115 L3099.8 84.2 L3094.1 279.5Z" fill="#ffb047" opacity=".075"/>
+<path d="M800 115 L3082.6 397.6 L3050.3 590.4Z" fill="#8a0008" opacity=".18"/>
+<path d="M800 115 L3022.8 705.8 L2964.7 892.4Z" fill="#ffb047" opacity=".075"/>
+<path d="M800 115 L2921.7 1003.0 L2838.6 1179.9Z" fill="#8a0008" opacity=".18"/>
+<path d="M800 115 L2781.0 1283.6 L2674.6 1447.5Z" fill="#ffb047" opacity=".075"/>
+<path d="M800 115 L2603.4 1542.4 L2475.7 1690.4Z" fill="#8a0008" opacity=".18"/>
+<path d="M800 115 L2392.3 1774.7 L2245.6 1903.9Z" fill="#ffb047" opacity=".075"/>
+<path d="M800 115 L2151.4 1976.1 L1988.6 2084.1Z" fill="#8a0008" opacity=".18"/>
+<path d="M800 115 L1885.4 2142.8 L1709.4 2227.6Z" fill="#ffb047" opacity=".075"/>
+<path d="M800 115 L1599.2 2271.7 L1413.2 2331.7Z" fill="#8a0008" opacity=".18"/>
+<path d="M800 115 L1298.1 2360.4 L1105.7 2394.6Z" fill="#ffb047" opacity=".075"/>
+<path d="M800 115 L987.7 2407.3 L792.4 2415.0Z" fill="#8a0008" opacity=".18"/>
+<path d="M800 115 L673.8 2411.5 L479.3 2392.5Z" fill="#ffb047" opacity=".075"/>
+<path d="M800 115 L362.3 2373.0 L172.2 2327.7Z" fill="#8a0008" opacity=".18"/>
+<path d="M800 115 L58.9 2292.3 L-123.3 2221.6Z" fill="#ffb047" opacity=".075"/>
+<path d="M800 115 L-230.7 2171.1 L-401.5 2076.2Z" fill="#8a0008" opacity=".18"/>
+<path d="M800 115 L-501.1 2011.6 L-657.4 1894.3Z" fill="#ffb047" opacity=".075"/>
+<path d="M800 115 L-747.2 1816.8 L-886.1 1679.3Z" fill="#8a0008" opacity=".18"/>
+<path d="M800 115 L-964.5 1590.3 L-1083.4 1435.2Z" fill="#ffb047" opacity=".075"/>
+<path d="M800 115 L-1149.0 1336.3 L-1245.6 1166.4Z" fill="#8a0008" opacity=".18"/>
+<path d="M800 115 L-1297.1 1059.5 L-1369.7 878.1Z" fill="#ffb047" opacity=".075"/>
+<path d="M800 115 L-1406.2 765.2 L-1453.4 575.5Z" fill="#8a0008" opacity=".18"/></g>
+<rect width="1600" height="900" fill="url(#glow)"/>
+<g opacity=".56" transform="translate(0 25)">
+  <polygon points="800,12 818,54 863,58 829,87 839,131 800,108 761,131 771,87 737,58 782,54" fill="#e1ab55" stroke="#f6bf5c" stroke-width="2"/>
+  <g fill="none" stroke="#3f0910" stroke-width="11" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M780 72 L812 100 M783 53 L815 81"/>
+    <path d="M824 50 A28 28 0 1 0 844 92"/>
+  </g>
+  <g><ellipse cx="540" cy="180" rx="9" ry="19" fill="#cf9b43" opacity=".55" transform="rotate(-55 540 180)"/>
+<ellipse cx="531" cy="205" rx="9" ry="19" fill="#cf9b43" opacity=".55" transform="rotate(-52 531 205)"/>
+<ellipse cx="522" cy="230" rx="9" ry="19" fill="#cf9b43" opacity=".55" transform="rotate(-49 522 230)"/>
+<ellipse cx="513" cy="255" rx="9" ry="19" fill="#cf9b43" opacity=".55" transform="rotate(-46 513 255)"/>
+<ellipse cx="504" cy="280" rx="9" ry="19" fill="#cf9b43" opacity=".55" transform="rotate(-43 504 280)"/>
+<ellipse cx="495" cy="305" rx="9" ry="19" fill="#cf9b43" opacity=".55" transform="rotate(-40 495 305)"/>
+<ellipse cx="486" cy="330" rx="9" ry="19" fill="#cf9b43" opacity=".55" transform="rotate(-37 486 330)"/>
+<ellipse cx="477" cy="355" rx="9" ry="19" fill="#cf9b43" opacity=".55" transform="rotate(-34 477 355)"/>
+<ellipse cx="468" cy="380" rx="9" ry="19" fill="#cf9b43" opacity=".55" transform="rotate(-31 468 380)"/>
+<ellipse cx="459" cy="405" rx="9" ry="19" fill="#cf9b43" opacity=".55" transform="rotate(-28 459 405)"/>
+<ellipse cx="450" cy="430" rx="9" ry="19" fill="#cf9b43" opacity=".55" transform="rotate(-25 450 430)"/>
+<ellipse cx="441" cy="455" rx="9" ry="19" fill="#cf9b43" opacity=".55" transform="rotate(-22 441 455)"/>
+<ellipse cx="432" cy="480" rx="9" ry="19" fill="#cf9b43" opacity=".55" transform="rotate(-19 432 480)"/></g><g transform="translate(1600 0) scale(-1 1)"><ellipse cx="540" cy="180" rx="9" ry="19" fill="#cf9b43" opacity=".55" transform="rotate(-55 540 180)"/>
+<ellipse cx="531" cy="205" rx="9" ry="19" fill="#cf9b43" opacity=".55" transform="rotate(-52 531 205)"/>
+<ellipse cx="522" cy="230" rx="9" ry="19" fill="#cf9b43" opacity=".55" transform="rotate(-49 522 230)"/>
+<ellipse cx="513" cy="255" rx="9" ry="19" fill="#cf9b43" opacity=".55" transform="rotate(-46 513 255)"/>
+<ellipse cx="504" cy="280" rx="9" ry="19" fill="#cf9b43" opacity=".55" transform="rotate(-43 504 280)"/>
+<ellipse cx="495" cy="305" rx="9" ry="19" fill="#cf9b43" opacity=".55" transform="rotate(-40 495 305)"/>
+<ellipse cx="486" cy="330" rx="9" ry="19" fill="#cf9b43" opacity=".55" transform="rotate(-37 486 330)"/>
+<ellipse cx="477" cy="355" rx="9" ry="19" fill="#cf9b43" opacity=".55" transform="rotate(-34 477 355)"/>
+<ellipse cx="468" cy="380" rx="9" ry="19" fill="#cf9b43" opacity=".55" transform="rotate(-31 468 380)"/>
+<ellipse cx="459" cy="405" rx="9" ry="19" fill="#cf9b43" opacity=".55" transform="rotate(-28 459 405)"/>
+<ellipse cx="450" cy="430" rx="9" ry="19" fill="#cf9b43" opacity=".55" transform="rotate(-25 450 430)"/>
+<ellipse cx="441" cy="455" rx="9" ry="19" fill="#cf9b43" opacity=".55" transform="rotate(-22 441 455)"/>
+<ellipse cx="432" cy="480" rx="9" ry="19" fill="#cf9b43" opacity=".55" transform="rotate(-19 432 480)"/></g>
+</g>
+<g font-family="Georgia, 'DejaVu Serif', serif" font-weight="bold" font-size="62" letter-spacing="12" fill="#e2b076" opacity=".22" text-anchor="middle">
+<text x="800" y="232">СССР</text></g>
+<!-- graphic construction lines and grain -->
+<path d="M0 275L1595 90 M0 420L1600 230 M0 570L1600 360" stroke="#e8bb79" stroke-opacity=".08" stroke-width="17"/>
+<!-- monumental left-hand sculpture silhouette -->
+<g fill="#120207" opacity=".75">
+<path d="M0 870 L0 320 L42 315 L75 244 L136 201 L192 225 L241 295 L224 402 L281 533 L331 733 L296 900Z"/>
+<circle cx="143" cy="252" r="56"/>
+<path d="M79 224 Q113 167 188 192 L203 222 Q150 193 79 224Z"/>
+<path d="M121 298 L225 309 L268 625 L188 598 L129 449 L102 735 L44 724Z"/>
+<path d="M150 378 L310 297 L328 334 L205 447Z"/>
+</g>
+<g fill="#e4a460" opacity=".28">
+<path d="M0 600L68 435L102 395L86 664Z"/>
+<path d="M50 216Q146 102 236 205L213 236Q153 152 50 216Z"/>
+</g>
+<!-- Soviet urban silhouette and tower on right -->
+<g transform="translate(1250,110)" fill="#1b0308" stroke="#ce7549" stroke-opacity=".46" stroke-width="3">
+<path d="M0 790V330H60V295H78V270H110V250H124V185L148 147L173 184V245H182V267H213V300H233V334H260V790Z"/>
+<path d="M113 184V127H181V184Z"/>
+<path d="M113 127L147 60L181 127Z"/>
+<path d="M147 60V12"/>
+<polygon points="147,-24 153,-9 170,-7 157,3 161,19 147,11 133,19 137,3 124,-7 141,-9" fill="#e3b16a"/>
+<rect x="124" y="337" width="46" height="45" fill="#c88a50" opacity=".55"/>
+<circle cx="147" cy="360" r="22" fill="#180208" stroke="#f4bc66" stroke-width="4"/>
+<path d="M147 360L147 342M147 360L162 369" stroke="#f4bc66" stroke-width="3"/>
+<path d="M-90 790V520H-50V470H-24V455H0V790Z M260 790V470H292V435H329V420H350V790Z"/>
+</g>
+<!-- skyline low -->
+<path d="M0 900V832H56V815H71V770H112V814H145V796H178V851H216V829H253V760H276V829H342V846H401V821H448V900Z" fill="#140307" opacity=".75"/>
+<path d="M1214 900V832H1265V809H1302V775H1330V810H1358V795H1385V838H1430V820H1462V755H1495V832H1552V788H1600V900Z" fill="#140307" opacity=".8"/>
+<rect width="1600" height="900" fill="url(#engrave)"/>
+<rect width="1600" height="900" filter="url(#grain)" opacity=".8"/>
+</svg>

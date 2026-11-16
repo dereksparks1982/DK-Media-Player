@@ -230,6 +230,7 @@
     media.load();
     screen.classList.remove("empty");
     screen.classList.toggle("audio", item.audio);
+    screen.classList.remove("ui-hidden");
     byId("nowTitle").textContent = item.name;
     byId("nowSource").textContent = item.kind === "file" ? "Local device · Not uploaded" : item.src;
     byId("kindBadge").textContent = item.kind === "file" ? "LOCAL" : "STREAM";
@@ -261,6 +262,7 @@
     for (const {file, handle} of accepted) state.queue.push({
       kind: "file", name: file.name, audio: fileIsAudio(file),
       src: URL.createObjectURL(file), handle,
+      size: file.size, mime: file.type || "",
       key: "file:" + file.name + ":" + file.size + ":" + file.lastModified
     });
     renderQueue();
@@ -487,6 +489,43 @@
     if (media.paused || media.ended) playCurrent();
     else media.pause();
   };
+  // On-picture controls are visible while paused, when focused, or while the
+  // user interacts; they fade during uninterrupted playback.
+  const controls = byId("screenControls");
+  const contextMenu = byId("playerContextMenu");
+  const infoPanel = byId("mediaInfo");
+  let hideControlsTimer = null;
+  let menuOpen = false;
+  const revealControls = () => {
+    screen.classList.remove("ui-hidden");
+    clearTimeout(hideControlsTimer);
+    if (!media.paused && current() && !menuOpen) {
+      hideControlsTimer = setTimeout(() => {
+        if (controls.matches(":hover") || controls.contains(document.activeElement) ||
+            !infoPanel.hidden || menuOpen || media.paused) {
+          revealControls();
+          return;
+        }
+        screen.classList.add("ui-hidden");
+      }, 2700);
+    }
+  };
+  const keepControlsVisible = () => {
+    clearTimeout(hideControlsTimer);
+    screen.classList.remove("ui-hidden");
+  };
+  screen.addEventListener("pointermove", revealControls);
+  screen.addEventListener("pointerleave", () => {
+    if (!media.paused && current() && !menuOpen) revealControls();
+  });
+  controls.addEventListener("focusin", keepControlsVisible);
+  controls.addEventListener("focusout", revealControls);
+  for (const eventName of ["play", "pause", "ended", "emptied"]) {
+    media.addEventListener(eventName, () => {
+      if (media.paused || media.ended || !current()) keepControlsVisible();
+      else revealControls();
+    });
+  }
   byId("playPause").addEventListener("click", togglePlayback);
   // Wait briefly before treating a video click as play/pause. Otherwise the
   // first click of a double-click pauses the film just before fullscreen.
@@ -499,6 +538,7 @@
   };
   media.addEventListener("click", event => {
     if (!current()) return;
+    revealControls();
     if (event.detail > 1) { cancelVideoClick(); return; }
     cancelVideoClick();
     pendingVideoClick = setTimeout(() => {
@@ -636,10 +676,179 @@
   // Double-click anywhere in the picture, including its black sidebars, to
   // enter/leave fullscreen without interrupting video playback.
   screen.addEventListener("dblclick", event => {
-    if (!current() || current().audio) return;
+    if (!current() || current().audio ||
+        (event.target.closest && event.target.closest("button,input,select,.player-context-menu,.media-info"))) return;
     event.preventDefault();
     cancelVideoClick();
     void toggleFullscreen();
+  });
+  // Video context menu works in normal and fullscreen mode because it lives
+  // inside the fullscreen player surface, not the document body.
+  const closeContextMenu = () => {
+    contextMenu.hidden = true;
+    contextMenu.replaceChildren();
+    menuOpen = false;
+    revealControls();
+  };
+  const addMenuHeading = label => {
+    const heading = document.createElement("div");
+    heading.className = "context-heading";
+    heading.textContent = label;
+    heading.setAttribute("role", "presentation");
+    contextMenu.append(heading);
+  };
+  const addMenuItem = (label, action, options = {}) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "context-item";
+    button.textContent = label;
+    button.setAttribute("role", options.checked === undefined ? "menuitem" : "menuitemradio");
+    if (options.checked !== undefined)
+      button.setAttribute("aria-checked", String(Boolean(options.checked)));
+    button.disabled = Boolean(options.disabled);
+    if (options.disabled) button.title = options.reason || "Not available for this media";
+    button.addEventListener("click", event => {
+      event.stopPropagation();
+      closeContextMenu();
+      if (!button.disabled) action();
+    });
+    contextMenu.append(button);
+    return button;
+  };
+  const availableTracks = () => {
+    try { return Array.from(media.textTracks || []); }
+    catch (_) { return []; }
+  };
+  const audioTracks = () => {
+    try { return Array.from(media.audioTracks || []); }
+    catch (_) { return []; }
+  };
+  const switchSubtitles = selected => {
+    availableTracks().forEach((track, index) => {
+      track.mode = index === selected ? "showing" : "disabled";
+    });
+  };
+  const buildContextMenu = () => {
+    contextMenu.replaceChildren();
+    addMenuHeading("Playback");
+    addMenuItem(media.paused ? "▶  Play" : "⏸  Pause", togglePlayback);
+    addMenuItem("⏹  Stop", () => byId("stop").click());
+    addMenuItem("⏮  Previous", () => byId("previous").click(), {disabled: state.current <= 0});
+    addMenuItem("⏭  Next", () => byId("next").click(), {disabled: state.current >= state.queue.length - 1});
+    addMenuItem("↶  Back 10 seconds", () => {
+      if (Number.isFinite(media.duration)) media.currentTime = Math.max(0, media.currentTime - 10);
+    }, {disabled: !Number.isFinite(media.duration)});
+    addMenuItem("↷  Forward 10 seconds", () => {
+      if (Number.isFinite(media.duration)) media.currentTime = Math.min(media.duration, media.currentTime + 10);
+    }, {disabled: !Number.isFinite(media.duration)});
+    addMenuHeading("Speed");
+    for (const speed of [0.5, 0.75, 1, 1.25, 1.5, 2]) {
+      addMenuItem(speed + "×", () => {
+        media.playbackRate = speed;
+        byId("rate").value = String(speed);
+      }, {checked: Math.abs(media.playbackRate - speed) < 0.01});
+    }
+    addMenuHeading("Subtitles");
+    const tracks = availableTracks().filter(track => track.kind === "subtitles" || track.kind === "captions");
+    addMenuItem("Subtitles off", () => switchSubtitles(-1),
+      {checked: tracks.every(track => track.mode !== "showing")});
+    tracks.forEach(track => {
+      addMenuItem(track.label || track.language || "Subtitle track",
+        () => { availableTracks().forEach(t => { t.mode = t === track ? "showing" : "disabled"; }); },
+        {checked: track.mode === "showing"});
+    });
+    addMenuItem("＋ Load SRT / VTT…", () => byId("subtitlePicker").click());
+    addMenuHeading("Audio tracks");
+    const audios = audioTracks();
+    if (audios.length) {
+      audios.forEach((track, index) => addMenuItem(
+        track.label || track.language || "Audio track " + (index + 1),
+        () => { audios.forEach(t => { t.enabled = t === track; }); },
+        {checked: track.enabled}));
+    } else {
+      addMenuItem("Track selection not exposed by this browser", () => {},
+        {disabled: true, reason: "Requires a browser audio track API or future DK Browser support"});
+    }
+    const chapters = availableTracks().filter(track => track.kind === "chapters");
+    const cues = chapters.flatMap(track => {
+      try { return Array.from(track.cues || []); }
+      catch (_) { return []; }
+    });
+    if (cues.length) {
+      addMenuHeading("Chapters");
+      for (const cue of cues) addMenuItem(
+        time(cue.startTime) + "  " + (cue.text || "Chapter"),
+        () => { media.currentTime = cue.startTime; });
+    }
+    addMenuHeading("Picture");
+    addMenuItem("Fit full picture", () => {
+      screen.classList.remove("fit-cover");
+    }, {checked: !screen.classList.contains("fit-cover")});
+    addMenuItem("Fill frame (crop edges)", () => {
+      screen.classList.add("fit-cover");
+    }, {checked: screen.classList.contains("fit-cover")});
+    addMenuItem(document.fullscreenElement ? "Exit fullscreen" : "Fullscreen",
+      () => { void toggleFullscreen(); });
+    addMenuItem("Picture in picture", () => byId("pip").click(),
+      {disabled: byId("pip").hidden});
+    addMenuItem("Media information", openMediaInfo);
+  };
+  const openMediaInfo = () => {
+    const item = current();
+    if (!item) return;
+    const info = byId("mediaInfoDetails");
+    info.replaceChildren();
+    const addDetail = (label, value) => {
+      const key = document.createElement("dt");
+      key.textContent = label;
+      const data = document.createElement("dd");
+      data.textContent = String(value);
+      info.append(key, data);
+    };
+    addDetail("Title", item.name);
+    addDetail("Source", item.kind === "file" ? "Local file" : "Direct stream URL");
+    if (item.size !== undefined) addDetail("Size", (item.size / 1048576).toFixed(1) + " MiB");
+    if (item.mime) addDetail("Format", item.mime);
+    if (media.videoWidth && media.videoHeight)
+      addDetail("Resolution", media.videoWidth + " × " + media.videoHeight);
+    addDetail("Duration", Number.isFinite(media.duration) ? time(media.duration) : "Live / unknown");
+    addDetail("Speed", media.playbackRate + "×");
+    addDetail("Subtitles", availableTracks().filter(t => t.kind === "subtitles" || t.kind === "captions").length);
+    infoPanel.hidden = false;
+    keepControlsVisible();
+    byId("closeMediaInfo").focus();
+  };
+  byId("closeMediaInfo").addEventListener("click", () => {
+    infoPanel.hidden = true;
+    revealControls();
+  });
+  screen.addEventListener("contextmenu", event => {
+    if (!current() || (event.target.closest && event.target.closest(".player-context-menu,.media-info"))) return;
+    event.preventDefault();
+    cancelVideoClick();
+    buildContextMenu();
+    contextMenu.hidden = false;
+    menuOpen = true;
+    keepControlsVisible();
+    const bounds = screen.getBoundingClientRect();
+    const rect = contextMenu.getBoundingClientRect();
+    const x = Math.max(8, Math.min(bounds.width - rect.width - 8, event.clientX - bounds.left));
+    const y = Math.max(8, Math.min(bounds.height - rect.height - 8, event.clientY - bounds.top));
+    contextMenu.style.left = x + "px";
+    contextMenu.style.top = y + "px";
+    const first = contextMenu.querySelector("button:not(:disabled)");
+    if (first) first.focus();
+  });
+  document.addEventListener("pointerdown", event => {
+    if (menuOpen && !contextMenu.contains(event.target)) closeContextMenu();
+  });
+  contextMenu.addEventListener("keydown", event => {
+    if (event.key === "Escape") { event.preventDefault(); closeContextMenu(); return; }
+    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+    const options = Array.from(contextMenu.querySelectorAll("button:not(:disabled)"));
+    const index = options.indexOf(document.activeElement);
+    const next = (index + (event.key === "ArrowDown" ? 1 : -1) + options.length) % options.length;
+    if (options[next]) { event.preventDefault(); options[next].focus(); }
   });
   document.addEventListener("fullscreenchange", updateFullscreenButton);
   media.addEventListener("webkitbeginfullscreen", updateFullscreenButton);
@@ -674,8 +883,14 @@
   });
   document.addEventListener("keydown", event => {
     if (event.altKey || event.ctrlKey || event.metaKey) return;
+    if (event.key === "Escape") {
+      if (menuOpen) { event.preventDefault(); closeContextMenu(); }
+      else if (!infoPanel.hidden) { infoPanel.hidden = true; revealControls(); }
+      return;
+    }
     const tag = event.target && event.target.tagName;
-    if (["INPUT", "TEXTAREA", "SELECT", "BUTTON"].includes(tag) || byId("page-player").hidden || !current()) return;
+    if (["INPUT", "TEXTAREA", "SELECT", "BUTTON"].includes(tag) ||
+        byId("page-player").hidden || !current()) return;
     const key = event.key.toLowerCase();
     if ([" ", "k", "arrowleft", "arrowright", "arrowup", "arrowdown", "f", "m"].includes(key)) event.preventDefault();
     if (key === " " || key === "k") byId("playPause").click();
@@ -688,6 +903,7 @@
   });
   window.addEventListener("pagehide", () => {
     cancelVideoClick();
+    clearTimeout(hideControlsTimer);
     rememberPosition();
     clearSubtitles();
     state.queue.forEach(item => { if (item.kind === "file") URL.revokeObjectURL(item.src); });
