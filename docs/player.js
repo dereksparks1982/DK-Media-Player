@@ -8,7 +8,8 @@
   const store = {
     links: "dkmedia.web.links.v1",
     resume: "dkmedia.web.resume.v1",
-    volume: "dkmedia.web.volume.v1"
+    volume: "dkmedia.web.volume.v1",
+    lastMedia: "dkmedia.web.last-media.v1"
   };
   const read = (key, fallback) => {
     try {
@@ -34,6 +35,69 @@
     subtitleObject: null, subtitleNode: null, lastResumeSave: 0
   };
   const current = () => state.queue[state.current] || null;
+
+  // FileSystemFileHandle objects can be structured-cloned into IndexedDB.
+  // Only a reference to the user's chosen file is stored, never its contents.
+  // Local playback remains possible even if IndexedDB is unavailable.
+  const handleDb = "dkmedia.web.local-files.v1";
+  const handleStore = "handles";
+  const lastHandleKey = "lastPlayingFile";
+  const openHandleDatabase = () => new Promise((resolve, reject) => {
+    if (!window.indexedDB) { reject(new Error("IndexedDB unavailable")); return; }
+    const request = window.indexedDB.open(handleDb, 1);
+    request.onupgradeneeded = () => {
+      if (!request.result.objectStoreNames.contains(handleStore)) {
+        request.result.createObjectStore(handleStore);
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error("Unable to open file storage"));
+  });
+  const storedHandle = async (operation, handle = null) => {
+    const database = await openHandleDatabase();
+    return new Promise((resolve, reject) => {
+      const transaction = database.transaction(handleStore, operation === "read" ? "readonly" : "readwrite");
+      const store = transaction.objectStore(handleStore);
+      let result = null;
+      const request = operation === "read" ? store.get(lastHandleKey) :
+        operation === "save" ? store.put(handle, lastHandleKey) : store.delete(lastHandleKey);
+      request.onsuccess = () => { result = request.result || null; };
+      transaction.oncomplete = () => { database.close(); resolve(result); };
+      transaction.onabort = () => {
+        database.close();
+        reject(transaction.error || new Error("Unable to update file storage"));
+      };
+    });
+  };
+  let handleWrites = Promise.resolve();
+  const updateStoredHandle = handle => {
+    // Serialize writes so the last media selection always wins.
+    handleWrites = handleWrites.catch(() => {}).then(
+      () => storedHandle(handle ? "save" : "delete", handle)
+    );
+    handleWrites.catch(() => { /* Browser storage can be disabled. */ });
+  };
+  const clearRememberedMedia = () => {
+    try { localStorage.removeItem(store.lastMedia); } catch (_) {}
+    updateStoredHandle(null);
+    byId("restoreMedia").hidden = true;
+    byId("restoreHint").hidden = true;
+  };
+  const rememberSelectedMedia = item => {
+    if (item.kind === "url") {
+      write(store.lastMedia, {kind: "url", name: item.name, url: item.src});
+      updateStoredHandle(null);
+    } else if (item.handle) {
+      write(store.lastMedia, {kind: "file", name: item.name});
+      updateStoredHandle(item.handle);
+    } else {
+      // Files selected via the legacy input or drag-and-drop are session-only.
+      write(store.lastMedia, {kind: "temporary-file", name: item.name});
+      updateStoredHandle(null);
+    }
+    byId("restoreMedia").hidden = true;
+    byId("restoreHint").hidden = true;
+  };
   const status = (message, good = false) => {
     const node = byId("status");
     node.textContent = message;
@@ -158,6 +222,7 @@
     media.pause();
     state.current = index;
     const item = current();
+    rememberSelectedMedia(item);
     media.src = item.src;
     media.load();
     screen.classList.remove("empty");
@@ -177,26 +242,107 @@
     const old = state.queue.splice(index, 1)[0];
     if (wasCurrent) {
       if (state.queue.length) { state.current = -1; load(Math.min(index, state.queue.length - 1), false); }
-      else idle();
+      else { idle(); clearRememberedMedia(); }
     } else {
       if (index < state.current) state.current--;
       renderQueue();
     }
     if (old.kind === "file") URL.revokeObjectURL(old.src);
   };
-  const addFiles = files => {
-    const accepted = Array.from(files || []).filter(fileIsMedia);
+  const addFiles = (files, handles = [], autoplay = true) => {
+    const accepted = Array.from(files || []).map((file, index) => ({
+      file, handle: handles[index] || null
+    })).filter(entry => fileIsMedia(entry.file));
     if (!accepted.length) { status("No supported media file selected. Choose a video or audio file."); return; }
     const first = state.queue.length;
-    for (const file of accepted) state.queue.push({
+    for (const {file, handle} of accepted) state.queue.push({
       kind: "file", name: file.name, audio: fileIsAudio(file),
-      src: URL.createObjectURL(file),
+      src: URL.createObjectURL(file), handle,
       key: "file:" + file.name + ":" + file.size + ":" + file.lastModified
     });
     renderQueue();
-    if (state.current === -1) load(first);
+    if (state.current === -1) load(first, autoplay);
     status("Added " + accepted.length + (accepted.length === 1 ? " file" : " files") + " to the queue.", true);
   };
+
+  // The Chromium picker returns persistent file handles. Firefox and other
+  // browsers retain the standard file-input fallback, which is session-only.
+  const openLocalFiles = async () => {
+    if (typeof window.showOpenFilePicker !== "function") {
+      byId("filePicker").click();
+      return;
+    }
+    try {
+      const handles = await window.showOpenFilePicker({id: "dk-media-player", multiple: true});
+      const selected = [];
+      for (const handle of handles) {
+        try {
+          const file = await handle.getFile();
+          if (fileIsMedia(file)) selected.push({file, handle});
+        } catch (_) { /* Continue opening remaining files. */ }
+      }
+      if (selected.length) addFiles(selected.map(item => item.file),
+                                    selected.map(item => item.handle));
+      else status("No readable video or audio file was selected.");
+    } catch (error) {
+      if (error && error.name === "AbortError") return;
+      status("The file picker could not open. Try another browser or a file drop.");
+    }
+  };
+
+  const restoreLastMedia = async () => {
+    const saved = read(store.lastMedia, null);
+    if (!saved || state.queue.length) return;
+    if (saved.kind === "url" && validURL(saved.url)) {
+      state.queue.push({
+        kind: "url", name: saved.name || titleFromUrl(saved.url),
+        src: saved.url, key: "url:" + saved.url,
+        audio: /\.(mp3|m4a|aac|wav|flac|opus)(?:[?#]|$)/i.test(saved.url)
+      });
+      load(0, false);
+      status("Last stream restored. Press Play to resume.", true);
+      return;
+    }
+    if (saved.kind !== "file") return;
+    try {
+      const handle = await storedHandle("read");
+      if (!handle || typeof handle.getFile !== "function" || state.queue.length) return;
+      state.restoreHandle = handle;
+      const permission = typeof handle.queryPermission === "function" ?
+        await handle.queryPermission({mode: "read"}) : "prompt";
+      if (state.queue.length) return;
+      if (permission === "granted") {
+        const file = await handle.getFile();
+        if (state.queue.length) return;
+        addFiles([file], [handle], false);
+        status("Last local file restored. Press Play to resume.", true);
+      } else {
+        byId("restoreMedia").textContent = "Restore " + (saved.name || "last file");
+        byId("restoreMedia").hidden = false;
+        byId("restoreHint").textContent = "Your last file is remembered. Restore it to allow access again.";
+        byId("restoreHint").hidden = false;
+      }
+    } catch (_) {
+      status("The saved file is unavailable. Open it again to reconnect.");
+    }
+  };
+  byId("restoreMedia").addEventListener("click", async () => {
+    const handle = state.restoreHandle;
+    if (!handle || state.queue.length) return;
+    try {
+      const permission = await handle.requestPermission({mode: "read"});
+      if (permission !== "granted") {
+        status("Access wasn't granted. You can choose the file again.");
+        return;
+      }
+      const file = await handle.getFile();
+      if (state.queue.length) return;
+      addFiles([file], [handle], false);
+      status("File restored. Press Play to resume.", true);
+    } catch (_) {
+      status("Could not reopen the saved file. Open it again to reconnect.");
+    }
+  });
   const titleFromUrl = url => {
     try {
       const part = decodeURIComponent(new URL(url).pathname.split("/").filter(Boolean).pop() || "");
@@ -281,7 +427,9 @@
   }));
   addEventListener("hashchange", () => showPage(location.hash.slice(1)));
   showPage(location.hash.slice(1));
-  for (const id of ["openHeader", "openEmpty", "addQueueFiles"]) byId(id).addEventListener("click", () => byId("filePicker").click());
+  for (const id of ["openHeader", "openEmpty", "addQueueFiles"]) {
+    byId(id).addEventListener("click", openLocalFiles);
+  }
   byId("filePicker").addEventListener("change", event => {
     addFiles(event.target.files);
     event.target.value = "";
@@ -365,18 +513,40 @@
     status(message);
     updateButtons();
   });
+  let volumeOverlayTimer = null;
+  const showVolumeOverlay = () => {
+    const overlay = byId("volumeOverlay");
+    overlay.textContent = "Volume " + (media.muted ? 0 : Math.round(media.volume * 100)) + "%";
+    overlay.classList.add("visible");
+    clearTimeout(volumeOverlayTimer);
+    volumeOverlayTimer = setTimeout(() => overlay.classList.remove("visible"), 950);
+  };
+  const setVolume = percent => {
+    media.muted = false;
+    media.volume = Math.max(0, Math.min(1, Math.round(percent) / 100));
+    byId("volume").value = String(Math.round(media.volume * 100));
+    write(store.volume, media.volume);
+    updateButtons();
+    showVolumeOverlay();
+  };
+  screen.addEventListener("wheel", event => {
+    if (!current() || !event.deltaY) return;
+    // Limit the wheel gesture to the player surface, not page scrolling.
+    event.preventDefault();
+    const next = Math.round(media.volume * 100) + (event.deltaY < 0 ? 5 : -5);
+    setVolume(next);
+  }, {passive: false});
+
   const initialVolume = Number(read(store.volume, 1));
   media.volume = Number.isFinite(initialVolume) ? Math.max(0, Math.min(1, initialVolume)) : 1;
   byId("volume").value = String(Math.round(media.volume * 100));
   byId("volume").addEventListener("input", event => {
-    media.muted = false;
-    media.volume = Number(event.target.value) / 100;
-    write(store.volume, media.volume);
-    updateButtons();
+    setVolume(Number(event.target.value));
   });
   byId("mute").addEventListener("click", () => {
     media.muted = !media.muted;
     updateButtons();
+    showVolumeOverlay();
   });
   byId("rate").addEventListener("change", event => { media.playbackRate = Number(event.target.value); });
   if (!document.pictureInPictureEnabled || typeof media.requestPictureInPicture !== "function") byId("pip").hidden = true;
@@ -440,4 +610,6 @@
   });
   renderLibrary();
   idle();
+  // A restored file stays paused until the user presses Play.
+  restoreLastMedia();
 })();

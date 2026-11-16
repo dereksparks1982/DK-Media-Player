@@ -14,7 +14,7 @@
 <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png">
 <link rel="apple-touch-icon" sizes="180x180" href="./icons/dk-media-player-180.png">
 <link rel="stylesheet" href="./player.css?v=20261115-3">
-<script src="./player.js?v=20261115-2" defer></script>
+<script src="./player.js?v=20261116-1" defer></script>
 </head>
 <body>
 <div class="shell">
@@ -35,8 +35,9 @@
 <div class="panel">
 <div class="screen empty" id="screen" aria-label="Media player and file drop area">
 <video id="media" playsinline preload="metadata" aria-label="Selected video"></video>
+<div id="volumeOverlay" class="volume-overlay" aria-live="off" aria-hidden="true">Volume 100%</div>
 <div class="audio-art" aria-hidden="true">♫</div>
-<div class="empty-screen"><div class="empty-icon" aria-hidden="true">▶</div><h2>Ready when you are</h2><p>Choose a video or music file from this device, or open a direct stream below.</p><div class="empty-actions"><button type="button" class="btn primary" id="openEmpty">Open files</button></div><p class="file-hint">You can also drag media files onto this window.</p></div>
+<div class="empty-screen"><div class="empty-icon" aria-hidden="true">▶</div><h2>Ready when you are</h2><p>Choose a video or music file from this device, or open a direct stream below.</p><div class="empty-actions"><button type="button" class="btn primary" id="openEmpty">Open files</button><button type="button" class="btn ghost" id="restoreMedia" hidden>Restore last file</button></div><p id="restoreHint" class="file-hint" hidden></p><p class="file-hint">You can also drag media files onto this window.</p></div>
 </div>
 <div class="now-playing"><div style="min-width:0"><div class="media-title" id="nowTitle">Nothing playing</div><div class="media-subtitle" id="nowSource">Select media to get started</div></div><span class="badge" id="kindBadge">Ready</span></div>
 <div class="controls" aria-label="Playback controls">
@@ -60,11 +61,11 @@
 <section class="page" id="page-help" hidden>
 <div class="section-heading"><div><div class="eyebrow">DK Softworks</div><h1>Using the web player</h1></div></div>
 <div class="info-grid">
-<div class="panel info-card"><h2>Play files on this device</h2><p>Choose one or several media files. They play in your browser and are not uploaded. File selections last for this page session, so choose the files again after reloading.</p></div>
+<div class="panel info-card"><h2>Play files on this device</h2><p>Choose one or several media files. They play in your browser and are not uploaded. In DK Browser and other browsers with the File System Access API, the last opened file can be remembered across reloads. If permission expires, use Restore last file. Firefox uses a session-only picker.</p></div>
 <div class="panel info-card"><h2>Play remote video</h2><p>Paste a direct, publicly reachable media URL. The server must permit streaming, and the file must use a codec your browser understands. GitHub Pages does not host or expose videos on your Linux computer.</p></div>
 <div class="panel info-card"><h2>Library and resume</h2><p>Save direct URLs to the Library to reopen later. Watched positions and saved links are stored only in this browser. They do not automatically sync to your other devices.</p></div>
 <div class="panel info-card"><h2>Subtitles</h2><p>Load your own WebVTT (.vtt) or SubRip (.srt) subtitle file for the currently playing video. Built-in subtitle tracks depend on the browser and media format.</p></div>
-<div class="panel info-card"><h2>Keyboard shortcuts</h2><p>Space or K: play/pause. Left and right arrows: jump five seconds. F: fullscreen. M: mute. Shortcuts do not interfere while you type in a field.</p></div>
+<div class="panel info-card"><h2>Keyboard shortcuts</h2><p>Space or K: play/pause. Left and right arrows: jump five seconds. F: fullscreen. M: mute. Scroll over the player to adjust volume in 5% steps. Shortcuts do not interfere while you type in a field.</p></div>
 <div class="panel info-card"><h2>iPhone and iPad</h2><p>Use Safari or another browser to select a local file or open a direct media URL. You can add this site to your Home Screen. iOS supports HLS streams natively; other codecs vary by device.</p></div>
 </div>
 <p class="fineprint">DK Media Player is free software. This website is a browser-native companion to the original Python/Tkinter + VLC Linux player. It cannot run Linux executables in a browser.</p>

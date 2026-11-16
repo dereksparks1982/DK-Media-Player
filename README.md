@@ -15,9 +15,13 @@ DK Media is a Python/Tkinter desktop media player built around VLC/libVLC. This 
 
 **[Open DK Media Player in your browser](https://dereksparks1982.github.io/DK-Media-Player/)**
 
-The web player is published from `docs/` through GitHub Pages and works on desktop browsers and phones. Open video/audio files stored on your device, play direct media URLs, manage a session playlist, adjust playback, load SRT/VTT subtitles, and save media links locally in your browser.
+The web player is published from `docs/` through GitHub Pages and works on desktop browsers and phones. Open video/audio files stored on your device, play direct media URLs, manage a session playlist, adjust playback, load SRT/VTT subtitles, and save media links locally in your browser. In DK Browser and browsers supporting the File System Access API, the last selected local file can be remembered through IndexedDB and reloaded at its saved position without picking it again when browser permission remains granted. If permission expires, use **Restore last file**. The media player also supports **mouse-wheel volume changes** (5% steps) when scrolling over the video.
 
-The browser edition is separate from the Python/Tkinter + VLC Linux application. GitHub Pages does not stream movies stored on your home computer by itself: remote playback requires a reachable media URL and a browser-supported codec. Local files remain on your device, and saved links do not automatically synchronize across browsers.
+The browser edition is separate from the Python/Tkinter + VLC Linux application. GitHub Pages does not stream movies stored on your home computer by itself: remote playback requires a reachable media URL and a browser-supported codec. Local files remain on your device, and saved links do not automatically synchronize across browsers. Firefox and browsers without the required file APIs continue using the standard session-only file input. No codec or DRM support is added by the player webpage itself.
+
+## DK Browser integration
+
+[DK Browser](https://github.com/dereksparks1982/dkbrowser) is the separate full Chromium source fork. Its startup/home defaults open this web player. This page implements local file-handle persistence and volume controls without a browser plugin; local file handles stay within the browser's own IndexedDB origin storage. You can delete stored site data to remove those handles. Browser permission prompts are respected.
 
 ## Install on Ubuntu / Debian
 
