@@ -557,40 +557,11 @@
   let volumePercent = savedVolumeV2 === null ? Math.round(legacyVolume * 100) :
     Number(savedVolumeV2);
   if (!Number.isFinite(volumePercent)) volumePercent = 100;
-  volumePercent = Math.max(0, Math.min(200, Math.round(volumePercent)));
-  let audioContext = null;
-  let volumeGain = null;
-  const resumeAudioContext = () => {
-    if (audioContext && audioContext.state === "suspended") {
-      audioContext.resume().catch(() => {});
-    }
-  };
-  const enableAudioBoost = () => {
-    if (volumeGain) { resumeAudioContext(); return true; }
-    const AudioEngine = window.AudioContext || window.webkitAudioContext;
-    if (!AudioEngine) return false;
-    try {
-      audioContext = new AudioEngine();
-      const source = audioContext.createMediaElementSource(media);
-      volumeGain = audioContext.createGain();
-      source.connect(volumeGain);
-      volumeGain.connect(audioContext.destination);
-      resumeAudioContext();
-      return true;
-    } catch (_) {
-      volumeGain = null;
-      return false;
-    }
-  };
+  // Normalize older saved volumes, including settings above 100%, without
+  // connecting video to Web Audio (which caused playback glitches).
+  volumePercent = Math.max(0, Math.min(100, Math.round(volumePercent)));
   const applyVolume = () => {
-    // Native element volume tops out at 1.0. Web Audio supplies real gain
-    // above that, instead of merely changing the number in the slider.
-    if (volumeGain) {
-      media.volume = 1;
-      volumeGain.gain.value = media.muted ? 0 : volumePercent / 100;
-    } else {
-      media.volume = Math.min(volumePercent, 100) / 100;
-    }
+    media.volume = volumePercent / 100;
     byId("volume").value = String(volumePercent);
     byId("volumeValue").textContent = (media.muted ? 0 : volumePercent) + "%";
     updateButtons();
@@ -603,12 +574,8 @@
     volumeOverlayTimer = setTimeout(() => overlay.classList.remove("visible"), 950);
   };
   const setVolume = percent => {
-    let next = Math.max(0, Math.min(200, Math.round(Number(percent))));
+    const next = Math.max(0, Math.min(100, Math.round(Number(percent))));
     if (!Number.isFinite(next)) return;
-    if (next > 100 && !enableAudioBoost()) {
-      next = 100;
-      status("Audio boost isn't available in this browser. Normal volume is still supported.");
-    }
     volumePercent = next;
     media.muted = false;
     applyVolume();
@@ -621,7 +588,6 @@
     setVolume(volumePercent + (event.deltaY < 0 ? 5 : -5));
   }, {passive: false});
 
-  if (volumePercent > 100 && !enableAudioBoost()) volumePercent = 100;
   applyVolume();
   byId("volume").addEventListener("input", event => setVolume(event.target.value));
   byId("mute").addEventListener("click", () => {
@@ -629,7 +595,6 @@
     applyVolume();
     showVolumeOverlay();
   });
-  media.addEventListener("play", resumeAudioContext);
   byId("rate").addEventListener("change", event => { media.playbackRate = Number(event.target.value); });
   if (!document.pictureInPictureEnabled || typeof media.requestPictureInPicture !== "function") byId("pip").hidden = true;
   byId("pip").addEventListener("click", async () => {
@@ -723,7 +688,6 @@
   });
   window.addEventListener("pagehide", () => {
     cancelVideoClick();
-    if (audioContext) void audioContext.close().catch(() => {});
     rememberPosition();
     clearSubtitles();
     state.queue.forEach(item => { if (item.kind === "file") URL.revokeObjectURL(item.src); });
