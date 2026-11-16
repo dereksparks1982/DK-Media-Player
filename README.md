@@ -25,6 +25,23 @@ The web player uses the approved **Soviet poster** in `docs/images/soviet-poster
 
 This UI is intentionally reversible: its controls are fully contained in one dedicated source commit, and its background is an independent SVG asset. Local video is never uploaded or duplicated. Expanded title/poster/series metadata discovery requires a separate implementation and provider selection.
 
+### English and Russian interface
+
+The upper-right language selector offers **English** and **Русский**. The selection is
+saved locally in the browser and changes the navigation, player labels, help,
+library, notifications, title, and right-click controls without reloading or
+stopping playback. Local filenames and media audio are not translated.
+
+The video right-click menu is grouped into compact, expandable **Playback**,
+**Subtitles**, **Audio tracks**, **Speed**, and **Picture** sections, with a direct
+**Media information** action. Subtitles is visible immediately on opening the
+menu rather than being buried beneath the speed options. Unavailable embedded
+MKV subtitle tracks remain clearly labeled as unavailable; an interface
+translation does not add codecs to Firefox.
+
+The picture-in-picture and fullscreen controls use matching SVG icons with
+the same 36-pixel hit area and vertically centered alignment.
+
 ### Stop and MKV subtitles
 
 **Stop** now displays the golden emblem again and resets the selected movie's playback position, while keeping the same source ready to **Play** from the beginning without a file picker. Pause continues to retain the picture and resume position. Subtitles are off by default, and the selected browser-exposed subtitle track/language or "off" preference persists locally across viewing sessions. Loading an SRT/VTT file explicitly enables it.

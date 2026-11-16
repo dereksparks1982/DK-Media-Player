@@ -455,7 +455,7 @@
     if (!state.links.length) {
       const empty = document.createElement("li");
       empty.className = "empty-copy";
-      empty.textContent = "No saved links yet. Play a media URL, then choose 'Save URL to Library'.";
+      empty.textContent = "No saved links yet.";
       libraryView.append(empty);
       return;
     }
@@ -532,7 +532,7 @@
     addUrl(byId("urlInput").value, byId("urlName").value);
   });
   byId("clearLibrary").addEventListener("click", () => {
-    if (!state.links.length || !confirm("Remove all saved links from this browser?")) return;
+    if (!state.links.length || !confirm(window.DKLocale ? window.DKLocale.t("Remove all saved links from this browser?") : "Remove all saved links from this browser?")) return;
     state.links = [];
     write(store.links, state.links);
     renderLibrary();
@@ -790,12 +790,48 @@
     menuOpen = false;
     revealControls();
   };
+  let activeMenuSection = contextMenu;
+  let contextAnchor = {x:8, y:8};
+  // The main menu stays compact: expand one group at a time. This makes
+  // Subtitles visible immediately instead of burying it after six speeds.
+  const fitContextMenu = () => {
+    if (contextMenu.hidden) return;
+    const bounds = screen.getBoundingClientRect();
+    const rect = contextMenu.getBoundingClientRect();
+    contextMenu.style.left = Math.max(8, Math.min(bounds.width - rect.width - 8, contextAnchor.x)) + "px";
+    contextMenu.style.top = Math.max(8, Math.min(bounds.height - rect.height - 8, contextAnchor.y)) + "px";
+  };
   const addMenuHeading = label => {
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "context-section-toggle";
+    toggle.setAttribute("role", "menuitem");
+    toggle.setAttribute("aria-expanded", "false");
+    toggle.textContent = label;
+    const group = document.createElement("div");
+    group.className = "context-section-items";
+    group.hidden = true;
+    toggle.addEventListener("click", event => {
+      event.stopPropagation();
+      const expand = group.hidden;
+      contextMenu.querySelectorAll(".context-section-items").forEach(section => {
+        section.hidden = true;
+        const heading = section.previousElementSibling;
+        if (heading) heading.setAttribute("aria-expanded", "false");
+      });
+      group.hidden = !expand;
+      toggle.setAttribute("aria-expanded", String(expand));
+      fitContextMenu();
+      toggle.focus();
+    });
+    contextMenu.append(toggle, group);
+    activeMenuSection = group;
+  };
+  const addMenuSubheading = label => {
     const heading = document.createElement("div");
-    heading.className = "context-heading";
+    heading.className = "context-group-caption";
     heading.textContent = label;
-    heading.setAttribute("role", "presentation");
-    contextMenu.append(heading);
+    activeMenuSection.append(heading);
   };
   const addMenuItem = (label, action, options = {}) => {
     const button = document.createElement("button");
@@ -812,7 +848,7 @@
       closeContextMenu();
       if (!button.disabled) action();
     });
-    contextMenu.append(button);
+    activeMenuSection.append(button);
     return button;
   };
   const availableTracks = () => {
@@ -828,6 +864,7 @@
   };
   const buildContextMenu = () => {
     contextMenu.replaceChildren();
+    activeMenuSection = contextMenu;
     addMenuHeading("Playback");
     addMenuItem(media.paused ? "▶  Play" : "⏸  Pause", togglePlayback);
     addMenuItem("⏹  Stop", () => byId("stop").click());
@@ -839,13 +876,7 @@
     addMenuItem("↷  Forward 10 seconds", () => {
       if (Number.isFinite(media.duration)) media.currentTime = Math.min(media.duration, media.currentTime + 10);
     }, {disabled: !Number.isFinite(media.duration)});
-    addMenuHeading("Speed");
-    for (const speed of [0.5, 0.75, 1, 1.25, 1.5, 2]) {
-      addMenuItem(speed + "×", () => {
-        media.playbackRate = speed;
-        byId("rate").value = String(speed);
-      }, {checked: Math.abs(media.playbackRate - speed) < 0.01});
-    }
+
     addMenuHeading("Subtitles");
     const tracks = subtitleTracks();
     addMenuItem("Subtitles off", () => switchSubtitles(-1),
@@ -857,10 +888,10 @@
     if (item && item.mkvInspection && item.mkvInspection !== "not-mkv") {
       const embedded = item.embeddedSubtitles || [];
       if (embedded.length) {
-        addMenuHeading("MKV embedded tracks (file header)");
+        addMenuSubheading("MKV embedded tracks (file header)");
         embedded.forEach(track => {
-          const exposed = tracks.some(t => track.name && t.label === track.name ||
-            track.language && normalizeSubtitleLanguage(t.language) === normalizeSubtitleLanguage(track.language));
+          const exposed = tracks.some(t => (track.name && t.label === track.name) ||
+            (track.language && normalizeSubtitleLanguage(t.language) === normalizeSubtitleLanguage(track.language)));
           if (!exposed) addMenuItem((track.name || track.language || "Subtitle") + " · " +
             track.codec + " · Needs DK Browser", () => {}, {disabled: true,
               reason: "MKV subtitle track is detected but not exposed for playback by this browser."});
@@ -870,16 +901,25 @@
       }
     }
     addMenuItem("＋ Load SRT / VTT…", () => byId("subtitlePicker").click());
+
     addMenuHeading("Audio tracks");
     const audios = audioTracks();
     if (audios.length) {
-      audios.forEach((track, index) => addMenuItem(
-        track.label || track.language || "Audio track " + (index + 1),
+      audios.forEach(track => addMenuItem(
+        track.label || track.language || "Audio track " + (audios.indexOf(track) + 1),
         () => { audios.forEach(t => { t.enabled = t === track; }); },
         {checked: track.enabled}));
     } else {
       addMenuItem("Track selection not exposed by this browser", () => {},
         {disabled: true, reason: "Requires a browser audio track API or future DK Browser support"});
+    }
+
+    addMenuHeading("Speed");
+    for (const speed of [0.5, 0.75, 1, 1.25, 1.5, 2]) {
+      addMenuItem(speed + "×", () => {
+        media.playbackRate = speed;
+        byId("rate").value = String(speed);
+      }, {checked: Math.abs(media.playbackRate - speed) < 0.01});
     }
     const chapters = availableTracks().filter(track => track.kind === "chapters");
     const cues = chapters.flatMap(track => {
@@ -892,6 +932,7 @@
         time(cue.startTime) + "  " + (cue.text || "Chapter"),
         () => { media.currentTime = cue.startTime; });
     }
+
     addMenuHeading("Picture");
     addMenuItem("Fit full picture", () => {
       screen.classList.remove("fit-cover");
@@ -903,6 +944,9 @@
       () => { void toggleFullscreen(); });
     addMenuItem("Picture in picture", () => byId("pip").click(),
       {disabled: byId("pip").hidden});
+
+    // Direct action, not a deeply nested row.
+    activeMenuSection = contextMenu;
     addMenuItem("Media information", openMediaInfo);
   };
   const openMediaInfo = () => {
@@ -943,15 +987,14 @@
     event.preventDefault();
     cancelVideoClick();
     buildContextMenu();
+    // Translate before measuring the menu so longer Russian labels fit.
+    if (window.DKLocale) window.DKLocale.apply();
     contextMenu.hidden = false;
     menuOpen = true;
     keepControlsVisible();
     const bounds = screen.getBoundingClientRect();
-    const rect = contextMenu.getBoundingClientRect();
-    const x = Math.max(8, Math.min(bounds.width - rect.width - 8, event.clientX - bounds.left));
-    const y = Math.max(8, Math.min(bounds.height - rect.height - 8, event.clientY - bounds.top));
-    contextMenu.style.left = x + "px";
-    contextMenu.style.top = y + "px";
+    contextAnchor = {x:event.clientX - bounds.left, y:event.clientY - bounds.top};
+    fitContextMenu();
     const first = contextMenu.querySelector("button:not(:disabled)");
     if (first) first.focus();
   });
@@ -961,7 +1004,7 @@
   contextMenu.addEventListener("keydown", event => {
     if (event.key === "Escape") { event.preventDefault(); closeContextMenu(); return; }
     if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
-    const options = Array.from(contextMenu.querySelectorAll("button:not(:disabled)"));
+    const options = Array.from(contextMenu.querySelectorAll("button:not(:disabled)")).filter(button => !button.closest("[hidden]"));
     const index = options.indexOf(document.activeElement);
     const next = (index + (event.key === "ArrowDown" ? 1 : -1) + options.length) % options.length;
     if (options[next]) { event.preventDefault(); options[next].focus(); }

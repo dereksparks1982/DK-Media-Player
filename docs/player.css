@@ -267,3 +267,47 @@ body {
   justify-content:center;
 }
 .screen.stopped #restoreMedia,.screen.stopped #openEmpty { display:none !important; }
+
+/* Consistent vector icons with identical sizing and vertical centering. */
+.screen .controls .extras { align-items:center; }
+.screen .controls .player-tool-button {
+  display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;
+  width:36px;height:36px;min-width:36px;min-height:36px;flex:0 0 36px;padding:6px;line-height:1;
+}
+.screen .controls .player-tool-icon {display:block;width:22px;height:22px;flex:none;}
+/* The language choice sits next to Open media, including narrow screens. */
+.header-tools {display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:10px;margin-left:auto;}
+.language-select {min-height:42px;max-width:148px;padding:8px 30px 8px 12px;border:1px solid rgba(239,108,100,.44);border-radius:10px;background:#271219;color:#fff;font:inherit;cursor:pointer;}
+.language-select option {background:#271219;color:#fff;}
+@media(max-width:640px){
+  .header-tools{width:100%;justify-content:space-between;gap:8px;}
+  .header-tools #openHeader{flex:0 1 auto;}
+  .language-select{flex:0 0 auto;}
+}
+/* Collapsed top-level sections fit within the video on the first right-click. */
+.player-context-menu .context-section-toggle {
+  display:flex;width:100%;align-items:center;justify-content:space-between;
+  border:0;border-radius:7px;padding:10px 11px;margin:0;
+  color:#f8edeb;background:transparent;font-size:.86rem;font-weight:690;
+  text-align:left;cursor:pointer;letter-spacing:.015em;
+}
+.player-context-menu .context-section-toggle::after {
+  content:"▸";color:#ff8985;font-size:1rem;line-height:1;margin-left:12px;flex:none;
+}
+.player-context-menu .context-section-toggle[aria-expanded="true"] {
+  color:#fff;background:rgba(198,46,52,.27);
+}
+.player-context-menu .context-section-toggle[aria-expanded="true"]::after {content:"▾";}
+.player-context-menu .context-section-toggle:hover,
+.player-context-menu .context-section-toggle:focus-visible {background:rgba(198,46,52,.32);}
+.player-context-menu .context-section-items {
+  padding-left:7px;margin:2px 0 5px 9px;border-left:2px solid rgba(239,108,100,.33);
+}
+.player-context-menu .context-group-caption {
+  color:#ff8985;font-weight:700;font-size:.7rem;text-transform:uppercase;
+  letter-spacing:.04em;margin:7px 8px 4px;
+}
+.player-context-menu > .context-item {
+  border-top:1px solid rgba(255,255,255,.13);
+  border-radius:0;padding-top:11px;margin-top:4px;
+}

@@ -69,3 +69,24 @@ assert.match(js, /media\.textTracks\.addEventListener\("addtrack"/);
 assert.match(js, /track\.default = false/);
 assert.match(js, /DKMatroska\.inspectFile\(file\)/);
 assert.match(js, /MKV embedded tracks \(file header\)/);
+
+/* English / Russian switch and compact context-menu regression checks. */
+const locale = fs.readFileSync(path.join(root, "i18n.js"), "utf8");
+new Function(locale);
+assert.match(html, /id="languageSelect"[^>]*>/);
+assert.match(html, /<option value="en">English<\/option>/);
+assert.match(html, /<option value="ru">Русский<\/option>/);
+assert.ok(html.indexOf('id="languageSelect"') < html.indexOf('id="openHeader"'));
+assert.ok(html.indexOf('src="./i18n.js?') < html.indexOf('src="./player.js?'));
+assert.match(js, /const addMenuHeading = label =>/);
+assert.match(js, /className = "context-section-toggle"/);
+assert.match(js, /activeMenuSection = contextMenu/);
+assert.ok(js.indexOf('addMenuHeading("Subtitles")') < js.indexOf('addMenuHeading("Speed")'));
+assert.match(js, /contextMenu\.querySelectorAll\("\.context-section-items"\)/);
+assert.match(js, /window\.DKLocale\.apply\(\)/);
+assert.match(css, /\.player-context-menu \.context-section-toggle/);
+assert.match(css, /\.screen \.controls \.player-tool-button/);
+assert.match(html, /id="pip"[^>]*><svg class="player-tool-icon"/);
+assert.match(html, /id="fullscreen"[^>]*><svg class="player-tool-icon"/);
+assert.match(locale, /MutationObserver/);
+assert.match(locale, /document\.documentElement\.lang = language/);
