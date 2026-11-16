@@ -407,3 +407,26 @@ body {
  overflow:hidden;max-width:100%;font-size:.66rem;line-height:1.1;font-weight:800;overflow-wrap:anywhere}
 .queue .queue-card-detail{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;
  white-space:nowrap;font-size:.54rem;line-height:1.2;color:#ff9b9e}
+
+/* Compact ten-second controls, equally usable in fullscreen or normal view. */
+.screen .controls .skip-ten{position:relative;display:inline-flex;align-items:center;justify-content:center;
+  min-width:42px;min-height:36px;padding:4px 5px;color:#fff;font-size:1.65rem;line-height:1}
+.screen .controls .skip-ten span{position:relative;display:inline-block;min-width:31px}
+.screen .controls .skip-ten small{position:absolute;left:50%;top:51%;transform:translate(-50%,-50%);
+  font-size:.54rem;line-height:1;font-weight:850;color:#fff}
+@media(max-width:640px){.screen .controls .skip-ten{min-width:30px;padding:3px 1px;font-size:1.4rem}
+  .screen .controls .skip-ten span{min-width:26px}}
+/* Episode images are real provider artwork, never filename text masquerading as art. */
+.queue .queue-artwork{background:#10121a;border-color:rgba(236,85,90,.28)}
+.queue .queue-artwork-fallback{font-size:1.3rem;color:#de7477}
+.queue .queue-artwork.has-art .queue-artwork-fallback{display:none}
+.queue .queue-artwork-image{object-fit:cover}
+.queue .queue-artwork-image[hidden]{display:none!important}
+.queue .queue-title-card{display:none!important}
+.queue-attribution{padding:0 16px 12px;margin:0;color:var(--muted);font-size:.69rem}
+.queue-attribution a{color:#efa0a0}
+.metadata-opt{display:block;margin:10px 0 6px;color:var(--text);font-size:.86rem}
+.metadata-opt input{accent-color:#d83a42}
+.metadata-token-row{display:flex;flex-wrap:wrap;gap:5px;margin:8px 0 10px}
+.metadata-token-row .field{width:100%;flex:1 1 200px}
+.metadata-token-row .btn{padding:7px 10px}

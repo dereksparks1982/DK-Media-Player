@@ -202,6 +202,8 @@
     byId("currentTime").textContent = time(media.currentTime);
     byId("duration").textContent = seekable ? time(length) : current() ? "LIVE" : "0:00";
     byId("seek").disabled = !current() || !seekable;
+    byId("rewind10").disabled = !current() || !seekable || state.stopped;
+    byId("forward10").disabled = !current() || !seekable || state.stopped;
     byId("seek").value = seekable ? String(Math.max(0, Math.min(1000, Math.round(1000 * media.currentTime / length)))) : "0";
   };
   const queueHover = window.DKQueueHover && window.DKQueueHover.create({
@@ -216,6 +218,8 @@
     byId("queueCount").textContent = pending.length ? pending.length + (pending.length === 1 ? " item" : " items") : "";
     pending.forEach((item, index) => {
       const li = document.createElement("li");
+      li.dataset.queueKind = item.kind;
+      li.dataset.queueAudio = item.audio ? "1" : "0";
       if (index === state.current) {
         li.classList.add("current");
         li.setAttribute("aria-current", "true");
@@ -227,21 +231,10 @@
       const artworkBox = document.createElement("span");
       artworkBox.className = "queue-artwork";
       artworkBox.setAttribute("aria-hidden", "true");
-      const card = window.DKTitleCard ? window.DKTitleCard.parse(item.name) :
-        {title:item.name,detail:""};
-      const cardBody = document.createElement("span");
-      cardBody.className = "queue-title-card";
-      const cardTitle = document.createElement("strong");
-      cardTitle.className = "queue-card-name";
-      cardTitle.textContent = card.title;
-      cardBody.append(cardTitle);
-      if (card.detail) {
-        const cardDetail = document.createElement("small");
-        cardDetail.className = "queue-card-detail";
-        cardDetail.textContent = card.detail;
-        cardBody.append(cardDetail);
-      }
-      artworkBox.append(cardBody);
+      const fallback = document.createElement("span");
+      fallback.className = "queue-artwork-fallback";
+      fallback.textContent = item.audio ? "♫" : "▶";
+      artworkBox.append(fallback);
       if (queueHover) queueHover.bind(play, item, artworkBox);
       const labels = document.createElement("span");
       labels.style.minWidth = "0";
@@ -680,6 +673,14 @@
   byId("stop").addEventListener("click", stopCurrent);
   byId("previous").addEventListener("click", () => load(state.current - 1));
   byId("next").addEventListener("click", () => load(state.current + 1));
+  const skipTen = delta => {
+    if (!current() || state.stopped || !Number.isFinite(media.duration) ||
+        media.duration <= 0) return;
+    media.currentTime = Math.max(0, Math.min(media.duration, media.currentTime + delta));
+    updateTime();
+  };
+  byId("rewind10").addEventListener("click", () => skipTen(-10));
+  byId("forward10").addEventListener("click", () => skipTen(10));
   byId("seek").addEventListener("input", event => {
     if (Number.isFinite(media.duration) && media.duration > 0) media.currentTime = media.duration * Number(event.target.value) / 1000;
   });
@@ -903,12 +904,10 @@
     addMenuItem("⏹  Stop", () => byId("stop").click());
     addMenuItem("⏮  Previous", () => byId("previous").click(), {disabled: state.current <= 0});
     addMenuItem("⏭  Next", () => byId("next").click(), {disabled: state.current >= state.queue.length - 1});
-    addMenuItem("↶  Back 10 seconds", () => {
-      if (Number.isFinite(media.duration)) media.currentTime = Math.max(0, media.currentTime - 10);
-    }, {disabled: !Number.isFinite(media.duration)});
-    addMenuItem("↷  Forward 10 seconds", () => {
-      if (Number.isFinite(media.duration)) media.currentTime = Math.min(media.duration, media.currentTime + 10);
-    }, {disabled: !Number.isFinite(media.duration)});
+    addMenuItem("↶  Back 10 seconds", () => skipTen(-10),
+      {disabled: !current() || !Number.isFinite(media.duration) || state.stopped});
+    addMenuItem("↷  Forward 10 seconds", () => skipTen(10),
+      {disabled: !current() || !Number.isFinite(media.duration) || state.stopped});
 
     addMenuHeading("Subtitles");
     const tracks = subtitleTracks();

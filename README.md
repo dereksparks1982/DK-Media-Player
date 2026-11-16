@@ -61,34 +61,46 @@ never paused or scrubbed. Remote streams and unsupported video codecs retain
 the normal icon instead of performing speculative background requests.
 No thumbnails are uploaded, synchronized or persistently saved.
 
-### Default title cards and top-of-list buttons
+### Real TV episode images, Jellyfin image-selection code and ten-second seeking
 
-All queued programmes now display a consistently styled **title card derived
-from the local filename**. Recognized SxxExx episode numbers and years are
-shown on the card. Unlike random decoded movie frames or embedded posters,
-these title cards are always present, including for videos the browser cannot
-decode. Hover over a local video to display the optional muted motion
-preview; the original title card returns on pointer exit. This uses no remote
-metadata lookup, external artwork service or upload.
+**Up Next shows real artwork, not text-filled filename cards.** For a local file
+named like `Show.Name.S01E04.mkv`, the web player extracts only the series
+name, season and episode number and searches **TVmaze** for exact episode
+metadata. When that episode has an image, it displays the episode still. A
+show/series thumbnail is used when the episode image is absent. Entries with
+no verified image retain a plain play icon. The **existing muted motion
+preview on pointer hover** is preserved, as are the moving red currently
+playing outline and red X removal action.
 
-**Add Files** (red) and **Clear Queue** are above the scrolling playlist,
-directly underneath the Up Next heading. The red current-episode outline,
-red remove X and playback order remain unchanged.
+This implementation incorporates a GPL-licensed adaptation of Jellyfin Web's
+`getCardImageUrl` image-priority algorithm from
+`src/components/cardbuilder/utils/url.ts`. The original upstream source and
+its GPL notice are included in `docs/vendor/jellyfin/`, separate from the
+DK Softworks-owned source covered by the custom no-resale license. The
+Jellyfin Web server API is not required.
 
-### Earlier thumbnail experiment (no longer the default)
+**TVmaze** works without a user API key. Optionally, a user can enter a
+**TMDb API Read Access Token** on the Help page to fetch film artwork and
+fill missing TV episode pictures; no token is included with the player.
+The token is stored only in this browser tab's session storage and can be
+cleared. The user can disable automatic artwork lookups. Requests contain
+derived title/season/episode identifiers, never the local video bytes,
+file handles or full paths. There is no automatic metadata sharing when
+automatic lookup is disabled. API responses and images are loaded directly
+in the browser over HTTPS. Artwork availability depends on provider data
+and the accuracy of video filenames. Credits are provided in the playlist
+and Help page. TVmaze data and provider imagery remain subject to provider
+terms; TMDb does not endorse this player.
 
-The queue now creates **up to three previews concurrently** instead of waiting
-for every earlier movie's frame decode to finish before starting the next one.
-For locally selected MKV files it first checks for a small, embedded JPEG,
-PNG or WebP `cover.jpg` / `poster.jpg` / `folder.jpg` attachment in the
-first 8 MiB of container metadata (maximum 512 KiB per image). If no cover is
-available, it tries to capture a frame. Supported files can therefore have
-real artwork even where the browser cannot decode their video frames. Files
-with neither readable artwork nor decodable frames retain a play icon;
-the application never invents an external movie poster or sends videos away.
+**Ten-second controls:** The main video overlay has a **↶ 10** rewind and
+**↷ 10** forward button. Each skips exactly ten seconds, clamped to the
+start/end of the current finite-duration media. Seeking does not alter the
+playback rate. These controls work in ordinary and fullscreen viewing and
+are disabled for non-seekable streams. The right-click ten-second commands
+use the same seek behavior. English/Russian labels are provided.
 
-**Add Files** is now the red primary action in the Up Next footer, without
-moving the button or changing Clear Queue.
+**Add Files** (red) and **Clear Queue** remain above the scrolling Up Next
+playlist, directly below the section heading.
 
 ### Timeline hover preview
 

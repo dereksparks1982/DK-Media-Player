@@ -9,17 +9,31 @@ usable. It will eventually be integrated inside DK Browser, **not now**.
 - English/Russian interface, red Play control and original DK poster/emblem.
 - Full Up Next playlist (including watched episodes); red rectangle marks the
   active video and advances as playback moves. Existing removal X is red.
-- Every playlist entry displays a deterministic local filename-based title
-  card; video frame and embedded-cover extraction are no longer default.
-  Muted hover-to-preview remains available for supported local videos.
+- TVmaze episode metadata lookup by parsed local filename; verified episode
+  still images prioritized with Jellyfin Web's GPL-licensed image algorithm.
+  No video bytes or file paths are uploaded. Unmatched files retain an icon.
+- Optional user-supplied TMDb token for movie artwork and TV fallback, kept
+  only in the current browser-tab session; lookup can be disabled.
+- Muted hover-to-preview remains available for supported local videos.
+- Ten-second backward/forward buttons in normal/fullscreen playback with
+  disabled state for live/non-seekable media and Russian labels.
 - Add Files (red) and Clear Queue remain above the scrollable playlist.
-- Local video thumbnails and muted hover-to-play previews for queued movies
-  and television episodes, without affecting the current video.
+- Muted hover-to-play previews for local queued videos without affecting current playback.
 - Playlist, URL Library, last-position restore, optional file handle retention.
 - External SRT/VTT loading, MKV metadata inspection without pretending to decode it.
 - Seek hover timestamp and lazy local-file preview thumbnails; non-seekable or
   unsupported formats fall back to time-only preview.
 - Stop resets to emblem and current movie; 3-second cursor hide.
+
+## Metadata providers and attribution
+
+- TVmaze is the default no-key TV episode image provider; check matching,
+  provider coverage, rate limiting and CC BY-SA attribution.
+- TMDb is optional and uses an API Read Access Token supplied by each user.
+- Jellyfin's open-source image-priority source is vendored with its GPL license.
+- The original DK Softworks license applies to independently owned code only.
+- Future: optional metadata overrides, local artwork, artwork cache with
+  expiry and storage controls; do not guess episode identities on ambiguity.
 
 ## DK Softworks code license
 

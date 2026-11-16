@@ -125,15 +125,25 @@ assert.match(js, /DKQueueHover\.create/);
 assert.match(css, /\.queue \.queue-artwork/);
 assert.match(css, /\.queue \.queue-hover-video/);
 
-/* Embedded cover extraction remains archived, not part of default title cards. */
-
-/* All list items use filename title cards, no random extracted frame. */
-assert.match(html, /src="\.\/title-card\.js\?/);
-assert.doesNotMatch(html, /src="\.\/queue-artwork\.js\?/);
-assert.match(js, /DKTitleCard\.parse\(item\.name\)/);
-assert.match(js, /queue-title-card/);
-assert.doesNotMatch(js, /DKQueueArtwork\.create/);
-assert.match(css, /\.queue \.queue-title-card/);
+/* Metadata artwork comes from TVmaze / optional TMDb and Jellyfin selection. */
+assert.match(html, /src="\.\/episode-metadata\.js\?/);
+assert.match(html, /src="\.\/jellyfin-artwork\.js\?/);
+assert.match(html, /src="\.\/metadata-ui\.js\?/);
+assert.doesNotMatch(html, /src="\.\/title-card\.js\?/);
+assert.match(js, /li\.dataset\.queueKind = item\.kind/);
+assert.match(js, /li\.dataset\.queueAudio/);
+assert.doesNotMatch(js, /DKTitleCard\.parse/);
+assert.match(css, /\.queue \.queue-artwork\.has-art/);
+assert.match(html, /id="autoArtwork"/);
+assert.match(html, /id="tmdbToken"/);
+assert.match(html, /https:\/\/www\.tvmaze\.com\//);
 assert.ok(html.indexOf('id="addQueueFiles"') < html.indexOf('id="queue"'));
 assert.ok(html.indexOf('id="clearQueue"') < html.indexOf('id="queue"'));
 assert.match(css, /\.sidebar-top #addQueueFiles\{background:#d83a42/);
+/* Dedicated seek buttons: exactly ten seconds in either direction. */
+assert.match(html, /id="rewind10"/);
+assert.match(html, /id="forward10"/);
+assert.match(js, /byId\("rewind10"\)\.addEventListener\("click", \(\) => skipTen\(-10\)\)/);
+assert.match(js, /byId\("forward10"\)\.addEventListener\("click", \(\) => skipTen\(10\)\)/);
+assert.match(js, /Math\.max\(0, Math\.min\(media\.duration, media\.currentTime \+ delta\)\)/);
+assert.match(css, /\.screen \.controls \.skip-ten/);
