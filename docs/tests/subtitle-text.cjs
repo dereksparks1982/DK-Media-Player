@@ -1,0 +1,15 @@
+"use strict";
+const assert = require("node:assert/strict");
+const {toWebVTT} = require("../subtitle-text.js");
+const sample = "\uFEFF1\r\n00:00:01,5 --> 00:00:03,120\r\n<i>Привет, мир!</i>\r\n\r\n2\r\n00:00:04,00 --> 00:00:05,250\r\nLine 2";
+const result = toWebVTT(sample, "film.ru.srt");
+assert.ok(result.startsWith("WEBVTT\n\n1\n"));
+assert.match(result, /00:00:01\.500 --> 00:00:03\.120/);
+assert.match(result, /00:00:04\.000 --> 00:00:05\.250/);
+assert.match(result, /<i>Привет, мир!<\/i>/);
+assert.equal(toWebVTT("WEBVTT\n\n00:00:01.000 --> 00:00:02.000\nHello", "example.vtt").split("\n")[0], "WEBVTT");
+assert.throws(() => toWebVTT("not a subtitle", "film.srt"), /No subtitle cues/);
+assert.throws(() => toWebVTT("00:80:02,000 --> 00:80:03,000", "film.srt"), /Invalid subtitle timestamp/);
+assert.throws(() => toWebVTT("hello", "film.vtt"), /Invalid WebVTT header/);
+assert.throws(() => toWebVTT("hello", "film.ass"), /Unsupported subtitle type/);
+console.log("PASS: SRT and VTT normalization");

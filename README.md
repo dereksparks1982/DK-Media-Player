@@ -42,6 +42,15 @@ translation does not add codecs to Firefox.
 The picture-in-picture and fullscreen controls use matching SVG icons with
 the same 36-pixel hit area and vertically centered alignment.
 
+### Subtitle loading refinements
+
+External SRT files are converted to browser WebVTT with explicit timestamp-line
+handling instead of a blanket text replacement. BOM/CRLF, one- to three-digit
+milliseconds, cue identifiers and styled dialogue are preserved or normalized
+appropriately. Invalid subtitle files are rejected rather than silently
+presenting a success message. The top-right language selector keeps its design
+and location; only the chevron is inset from the right edge.
+
 ### Stop and MKV subtitles
 
 **Stop** now displays the golden emblem again and resets the selected movie's playback position, while keeping the same source ready to **Play** from the beginning without a file picker. Pause continues to retain the picture and resume position. Subtitles are off by default, and the selected browser-exposed subtitle track/language or "off" preference persists locally across viewing sessions. Loading an SRT/VTT file explicitly enables it.

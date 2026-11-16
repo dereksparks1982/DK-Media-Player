@@ -93,3 +93,9 @@ assert.match(html, /id="pip"[^>]*><svg class="player-tool-icon"/);
 assert.match(html, /id="fullscreen"[^>]*><svg class="player-tool-icon"/);
 assert.match(locale, /MutationObserver/);
 assert.match(locale, /document\.documentElement\.lang = language/);
+
+// Subtitle files use a separately testable parser; do not rewrite dialogue lines.
+assert.match(html, /src="\.\/subtitle-text\.js\?/);
+assert.match(js, /DKSubtitleText\.toWebVTT\(await file\.text\(\), file\.name\)/);
+assert.match(css, /background-position:right 17px center/);
+assert.match(css, /appearance:none;-webkit-appearance:none/);

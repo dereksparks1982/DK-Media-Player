@@ -1020,10 +1020,8 @@
     if (!file || !current()) return;
     if (!/\.(srt|vtt)$/i.test(file.name)) { status("Choose a .vtt or .srt subtitle file."); return; }
     try {
-      let body = (await file.text()).replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n");
-      if (/\.srt$/i.test(file.name)) {
-        body = "WEBVTT\n\n" + body.replace(/(\d\d:\d\d:\d\d),(\d{3})/g, "$1.$2");
-      } else if (!body.startsWith("WEBVTT")) body = "WEBVTT\n\n" + body;
+      if (!window.DKSubtitleText) throw new Error("Subtitle conversion unavailable");
+      const body = window.DKSubtitleText.toWebVTT(await file.text(), file.name);
       clearSubtitles();
       state.subtitleObject = URL.createObjectURL(new Blob([body], {type: "text/vtt"}));
       const track = document.createElement("track");
