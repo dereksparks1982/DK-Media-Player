@@ -1,0 +1,10 @@
+"use strict";
+const assert=require("node:assert/strict");
+const {parse}=require("../title-card.js");
+assert.deepEqual(parse("The_Series.S02E04.The_Guest.mkv"),{title:"The Series",detail:"S02 · E04 · The Guest"});
+assert.deepEqual(parse("Fawlty Towers S1E12.mp4"),{title:"Fawlty Towers",detail:"S01 · E12"});
+assert.deepEqual(parse("Example.Movie.1987.1080p.mkv"),{title:"Example Movie",detail:"1987"});
+assert.deepEqual(parse("Детектив_1991.mkv"),{title:"Детектив",detail:"1991"});
+assert.deepEqual(parse("SingleMovie.mkv"),{title:"SingleMovie",detail:""});
+assert.deepEqual(parse(""),{title:"Untitled",detail:""});
+console.log("PASS: consistent local title cards");

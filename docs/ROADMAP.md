@@ -9,9 +9,10 @@ usable. It will eventually be integrated inside DK Browser, **not now**.
 - English/Russian interface, red Play control and original DK poster/emblem.
 - Full Up Next playlist (including watched episodes); red rectangle marks the
   active video and advances as playback moves. Existing removal X is red.
-- Bounded three-worker queue artwork pipeline, with embedded Matroska cover
-  attachments (JPEG/PNG/WebP) before frame extraction; unsupported files keep
-  an icon. Red Add Files footer button.
+- Every playlist entry displays a deterministic local filename-based title
+  card; video frame and embedded-cover extraction are no longer default.
+  Muted hover-to-preview remains available for supported local videos.
+- Add Files (red) and Clear Queue remain above the scrollable playlist.
 - Local video thumbnails and muted hover-to-play previews for queued movies
   and television episodes, without affecting the current video.
 - Playlist, URL Library, last-position restore, optional file handle retention.

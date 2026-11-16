@@ -120,17 +120,20 @@ assert.match(js, /media\.addEventListener\("ended"/);
 assert.match(js, /load\(state\.current \+ 1\)/);
 assert.match(css, /\.queue li\.current/);
 assert.match(css, /\.queue \.icon-btn\.remove \{ color:#ff5a62/);
-assert.match(html, /src="\.\/queue-artwork\.js\?/);
 assert.match(html, /src="\.\/queue-hover\.js\?/);
-assert.match(js, /DKQueueArtwork\.create/);
 assert.match(js, /DKQueueHover\.create/);
 assert.match(css, /\.queue \.queue-artwork/);
 assert.match(css, /\.queue \.queue-hover-video/);
 
-/* Cover metadata and multiple independent decoders reduce alternating gaps. */
-assert.match(html, /src="\.\/mkv-cover\.js\?/);
-assert.match(js, /DKMatroskaCover\.extract\(file\)/);
-assert.match(js, /src: URL\.createObjectURL\(file\), file, handle/);
-assert.match(js, /thumbnailBlob && item\.thumbnail/);
-assert.match(css, /\.sidebar-footer #addQueueFiles/);
-assert.match(css, /background:#d83a42/);
+/* Embedded cover extraction remains archived, not part of default title cards. */
+
+/* All list items use filename title cards, no random extracted frame. */
+assert.match(html, /src="\.\/title-card\.js\?/);
+assert.doesNotMatch(html, /src="\.\/queue-artwork\.js\?/);
+assert.match(js, /DKTitleCard\.parse\(item\.name\)/);
+assert.match(js, /queue-title-card/);
+assert.doesNotMatch(js, /DKQueueArtwork\.create/);
+assert.match(css, /\.queue \.queue-title-card/);
+assert.ok(html.indexOf('id="addQueueFiles"') < html.indexOf('id="queue"'));
+assert.ok(html.indexOf('id="clearQueue"') < html.indexOf('id="queue"'));
+assert.match(css, /\.sidebar-top #addQueueFiles\{background:#d83a42/);

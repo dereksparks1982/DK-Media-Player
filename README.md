@@ -61,7 +61,21 @@ never paused or scrubbed. Remote streams and unsupported video codecs retain
 the normal icon instead of performing speculative background requests.
 No thumbnails are uploaded, synchronized or persistently saved.
 
-### Thumbnail reliability and poster metadata
+### Default title cards and top-of-list buttons
+
+All queued programmes now display a consistently styled **title card derived
+from the local filename**. Recognized SxxExx episode numbers and years are
+shown on the card. Unlike random decoded movie frames or embedded posters,
+these title cards are always present, including for videos the browser cannot
+decode. Hover over a local video to display the optional muted motion
+preview; the original title card returns on pointer exit. This uses no remote
+metadata lookup, external artwork service or upload.
+
+**Add Files** (red) and **Clear Queue** are above the scrolling playlist,
+directly underneath the Up Next heading. The red current-episode outline,
+red remove X and playback order remain unchanged.
+
+### Earlier thumbnail experiment (no longer the default)
 
 The queue now creates **up to three previews concurrently** instead of waiting
 for every earlier movie's frame decode to finish before starting the next one.

@@ -204,23 +204,8 @@
     byId("seek").disabled = !current() || !seekable;
     byId("seek").value = seekable ? String(Math.max(0, Math.min(1000, Math.round(1000 * media.currentTime / length)))) : "0";
   };
-  const queueThumbs = new WeakMap();
   const queueHover = window.DKQueueHover && window.DKQueueHover.create({
     makeVideo: () => document.createElement("video")
-  });
-  const queueArt = window.DKQueueArtwork && window.DKQueueArtwork.create({
-    makeVideo: () => document.createElement("video"),
-    makeCanvas: () => document.createElement("canvas"),
-    metadataCover: file => window.DKMatroskaCover ? window.DKMatroskaCover.extract(file) : null,
-    isActive: item => state.queue.includes(item),
-    onReady: item => {
-      const display = queueThumbs.get(item);
-      if (display && item.thumbnail) {
-        display.thumb.src = item.thumbnail;
-        display.thumb.hidden = false;
-        display.icon.hidden = true;
-      }
-    }
   });
   const renderQueue = () => {
     if (queueHover) queueHover.stop();
@@ -242,19 +227,21 @@
       const artworkBox = document.createElement("span");
       artworkBox.className = "queue-artwork";
       artworkBox.setAttribute("aria-hidden", "true");
-      const icon = document.createElement("span");
-      icon.className = "queue-artwork-fallback";
-      icon.textContent = item.audio ? "♫" : "▶";
-      const thumb = document.createElement("img");
-      thumb.className = "queue-artwork-image";
-      thumb.alt = "";
-      thumb.decoding = "async";
-      thumb.hidden = !item.thumbnail;
-      if (item.thumbnail) thumb.src = item.thumbnail;
-      artworkBox.append(icon, thumb);
-      icon.hidden = !thumb.hidden;
-      queueThumbs.set(item, {thumb, icon});
-      if (queueArt) queueArt.request(item);
+      const card = window.DKTitleCard ? window.DKTitleCard.parse(item.name) :
+        {title:item.name,detail:""};
+      const cardBody = document.createElement("span");
+      cardBody.className = "queue-title-card";
+      const cardTitle = document.createElement("strong");
+      cardTitle.className = "queue-card-name";
+      cardTitle.textContent = card.title;
+      cardBody.append(cardTitle);
+      if (card.detail) {
+        const cardDetail = document.createElement("small");
+        cardDetail.className = "queue-card-detail";
+        cardDetail.textContent = card.detail;
+        cardBody.append(cardDetail);
+      }
+      artworkBox.append(cardBody);
       if (queueHover) queueHover.bind(play, item, artworkBox);
       const labels = document.createElement("span");
       labels.style.minWidth = "0";
@@ -353,9 +340,6 @@
       renderQueue();
     }
     if (old.kind === "file") URL.revokeObjectURL(old.src);
-    if (old.thumbnailBlob && old.thumbnail) URL.revokeObjectURL(old.thumbnail);
-    old.file = null;
-    old.thumbnail = null;
   };
   const addFiles = (files, handles = [], autoplay = true) => {
     const accepted = Array.from(files || []).map((file, index) => ({
@@ -365,7 +349,7 @@
     const first = state.queue.length;
     for (const {file, handle} of accepted) {
       const item = {kind: "file", name: file.name, audio: fileIsAudio(file),
-        src: URL.createObjectURL(file), file, handle,
+        src: URL.createObjectURL(file), handle,
         size: file.size, mime: file.type || "",
         key: "file:" + file.name + ":" + file.size + ":" + file.lastModified,
         embeddedSubtitles: [], mkvInspection: "not-mkv"};
@@ -588,9 +572,6 @@
     const old = state.queue.splice(state.current + 1);
     old.forEach(item => {
       if (item.kind === "file") URL.revokeObjectURL(item.src);
-      if (item.thumbnailBlob && item.thumbnail) URL.revokeObjectURL(item.thumbnail);
-      item.file = null;
-      item.thumbnail = null;
     });
     renderQueue();
     status("Up Next cleared.", true);
