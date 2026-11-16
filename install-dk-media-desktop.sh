@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
-mkdir -p "$HOME/.local/bin" "$HOME/.local/share/applications"
+mkdir -p "$HOME/.local/bin" "$HOME/.local/share/applications" "$HOME/.local/share/icons/hicolor/256x256/apps"
+# Register the approved DK Media Player icon in the user's icon theme.
+cp "$ROOT/assets/images/dk-media-player-256.png" "$HOME/.local/share/icons/hicolor/256x256/apps/dkmedia.png"
 cat > "$HOME/.local/bin/dkmedia" <<LAUNCH
 #!/usr/bin/env bash
 set -euo pipefail
@@ -18,7 +20,7 @@ Comment=Original DK Media Linux player
 Exec=$HOME/.local/bin/dkmedia %F
 Terminal=false
 Categories=AudioVideo;Player;
-Icon=video-x-generic
+Icon=dkmedia
 MimeType=audio/*;video/*;
 StartupNotify=true
 DESK

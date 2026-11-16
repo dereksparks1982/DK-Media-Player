@@ -5,6 +5,6 @@ Comment=Original DK Media Linux player
 Exec=dkmedia %F
 Terminal=false
 Categories=AudioVideo;Player;
-Icon=video-x-generic
+Icon=dkmedia
 MimeType=audio/*;video/*;
 StartupNotify=true

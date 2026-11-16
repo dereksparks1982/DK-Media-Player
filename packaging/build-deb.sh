@@ -10,6 +10,7 @@ mkdir -p "$PKGROOT/DEBIAN" \
          "$PKGROOT/usr/bin" \
          "$PKGROOT/usr/lib/dkmedia-original/src" \
          "$PKGROOT/usr/share/applications" \
+         "$PKGROOT/usr/share/icons/hicolor/256x256/apps" \
          "$PKGROOT/usr/share/doc/dkmedia-original"
 
 cp -a "$ROOT/src/dkmedia" "$PKGROOT/usr/lib/dkmedia-original/src/"
@@ -20,6 +21,7 @@ if [[ -f "$ROOT/docs/changelogs/CHANGELOG.md" ]]; then
     gzip -9 -c "$ROOT/docs/changelogs/CHANGELOG.md" > "$PKGROOT/usr/share/doc/dkmedia-original/changelog.gz"
 fi
 cp "$ROOT/LICENSE" "$PKGROOT/usr/share/doc/dkmedia-original/copyright"
+cp "$ROOT/assets/images/dk-media-player-256.png" "$PKGROOT/usr/share/icons/hicolor/256x256/apps/dkmedia.png"
 
 cat > "$PKGROOT/DEBIAN/control" <<CTRL
 Package: $PKG
@@ -50,7 +52,7 @@ Comment=Original DK Media Linux player
 Exec=dkmedia %F
 Terminal=false
 Categories=AudioVideo;Player;
-Icon=video-x-generic
+Icon=dkmedia
 MimeType=audio/*;video/*;
 StartupNotify=true
 DESK

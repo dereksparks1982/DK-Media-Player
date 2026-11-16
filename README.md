@@ -39,6 +39,12 @@ You can also run it directly from the repository without installing the desktop 
 ./run-dkmedia.sh
 ```
 
+## Application icon
+
+The approved red-and-gold Cyrillic ДК cinema emblem is stored in `assets/images/`, including the untouched original `APPROVED_ORIGINAL_1254.png`. The GitHub Pages player publishes copies of only the required icons from `docs/icons/` because Pages cannot serve files outside its publishing folder. The browser tab, web player header, and phone home-screen shortcut use this approved artwork.
+
+The Linux desktop installer places the 256-pixel icon into the user's icon theme. If you installed DK Media before the icon was added, re-run `./install-dk-media-desktop.sh` to refresh the installed icon. The Debian package builder also includes it.
+
 ## Runtime dependencies
 
 `install.sh` installs the required system packages with APT:
