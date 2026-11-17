@@ -1,22 +1,13 @@
 /* DK Media Player: real artwork in Up Next.
- * TVmaze with optional TMDb fallback. Only parsed programme names are sent.
+ * Automatic TVmaze episode imagery. Only parsed programme names are sent.
  * Video bytes, handles, playback state and local paths never leave the device.
  */
 (function(){
  "use strict";
  if(typeof document==="undefined"||!window.DKMediaMetadata)return;
  const queue=document.getElementById("queue");
- const enabledBox=document.getElementById("autoArtwork");
- const tokenBox=document.getElementById("tmdbToken");
- const apply=document.getElementById("applyTmdbToken");
- const clear=document.getElementById("clearTmdbToken");
- if(!queue||!enabledBox||!tokenBox||!apply||!clear)return;
- const pref="dkmedia.web.artwork.enabled.v1";
- const tokenKey="dkmedia.web.tmdb.token.tab";
- let enabled=true,token="",generation=0;
- try{enabled=localStorage.getItem(pref)!=="false"}catch(_){}
- try{token=sessionStorage.getItem(tokenKey)||""}catch(_){}
- enabledBox.checked=enabled;
+ if(!queue)return;
+ const enabled=true,token="",generation=0;
  let seen=new WeakSet(),cache=new Map(),retryScheduled=null;
  const retried=new Set(),retryQueue=new Set();
  const choose=(item,opts)=>window.DKJellyfinArtwork?
@@ -116,9 +107,9 @@
          "Не удалось определить серию или фильм по имени файла"),"filename");
        continue;
      }
-     if(parsed.type==="movie"&&!token){
-       status(box,locale("Movie posters require an optional TMDb token",
-         "Для обложек фильмов необходим ключ ТМДБ"),"tmdb-required");
+     if(parsed.type==="movie"){
+       status(box,locale("Automatic artwork is available for TV episodes",
+         "Автоматические изображения доступны для серий"),"episode-only");
        continue;
      }
      const requestedGeneration=generation;
@@ -147,31 +138,6 @@
    if(retryScheduled!==null)clearTimeout(retryScheduled);
    retryScheduled=null;finder.clear();scan();
  };
- enabledBox.addEventListener("change",()=>{
-   enabled=enabledBox.checked;
-   try{localStorage.setItem(pref,enabled?"true":"false")}catch(_){}
-   reset();
- });
- const saveToken=value=>{
-   token=value.trim();
-   try{
-     if(token)sessionStorage.setItem(tokenKey,token);
-     else sessionStorage.removeItem(tokenKey);
-   }catch(_){}
-   tokenBox.value="";
-   reset();
- };
- apply.addEventListener("click",()=>{
-   const value=tokenBox.value.trim();
-   if(value&&(value.length<20||value.length>1500)){
-     tokenBox.setCustomValidity(locale("Use your TMDb Read Access Token.",
-       "Введите ключ доступа ТМДБ."));
-     tokenBox.reportValidity();return;
-   }
-   tokenBox.setCustomValidity("");
-   saveToken(value);
- });
- clear.addEventListener("click",()=>saveToken(""));
  const observer=new MutationObserver(scan);
  observer.observe(queue,{childList:true});
  scan();

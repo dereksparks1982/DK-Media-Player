@@ -9,11 +9,11 @@ This identifies the present project or its stewardship; it does not change exist
 
 **Current development: DK Media Player is web-only.** Its web interface displays
 **DK Media** in English and **ДК Медиа** in Russian. The repository name, source
-identifiers, licensing and project history remain DK Media Player. The active player runs from `docs/` through GitHub Pages. It will later become part of DK Browser; no new standalone desktop player is being developed.
+identifiers, licensing and project history remain DK Media Player. The active player runs independently from `docs/` through GitHub Pages. DK Browser is a separate project; integration is not planned for the current build.
 
 The repository also contains preserved legacy **DK Media v0.1.11** desktop-era source and documentation, which are historical artifacts, not today's product direction.
 
-The old Python/Tkinter/libVLC code and its former yt-dlp/P2P modules remain untouched for preservation. Current feature development targets the web player only; video downloading will require an explicitly enabled browser/native or optional private service bridge because GitHub Pages cannot run yt-dlp.
+The old Python/Tkinter/libVLC code and its former yt-dlp/P2P modules remain untouched for preservation. Current web-player development targets local files only: no downloading, media server, saved streaming links or direct URL entry. yt-dlp belongs to the separate DK Browser project.
 
 ## Web player
 
@@ -25,13 +25,13 @@ media names, links and external API identifiers are not modified.
 
 **[Open DK Media Player in your browser](https://dereksparks1982.github.io/DK-Media-Player/)**
 
-The web player is published from `docs/` through GitHub Pages and works on desktop browsers and phones. Open video/audio files stored on your device, play direct media URLs, manage a session playlist, adjust playback, load SRT/VTT subtitles, and save media links locally in your browser. In DK Browser and browsers supporting the File System Access API, the last selected local file can be remembered through IndexedDB and reloaded at its saved position without picking it again when browser permission remains granted. If permission expires, use **Restore last file**. Firefox and other browsers using session-only file inputs can also click **Restore last file** and select the same movie again to recover the previously saved position. The media player supports normal **0–100% volume** with no Web Audio gain processing, and **mouse-wheel/Up-Down volume changes** (5% steps), plus **double-click the video to enter/exit fullscreen**. Fullscreen and normal playback both use the full video frame without the obsolete 64vh height cap. The picture is fitted without cropping or stretching, with black bars only when the aspect ratios differ. Playback continues uninterrupted. Single-click still plays/pauses (after a short delay to distinguish a double-click), the existing fullscreen button and **F** shortcut work, and **Esc** exits fullscreen.
+The web player is published from `docs/` through GitHub Pages and works on desktop browsers and phones. Open video/audio files stored on your device, manage a session playlist, adjust playback and load SRT/VTT subtitles. In DK Browser and browsers supporting the File System Access API, the last selected local file can be remembered through IndexedDB and reloaded at its saved position without picking it again when browser permission remains granted. If permission expires, use **Restore last file**. Firefox and other browsers using session-only file inputs can also click **Restore last file** and select the same movie again to recover the previously saved position. The media player supports normal **0–100% volume** with no Web Audio gain processing, and **mouse-wheel/Up-Down volume changes** (5% steps), plus **double-click the video to enter/exit fullscreen**. Fullscreen and normal playback both use the full video frame without the obsolete 64vh height cap. The picture is fitted without cropping or stretching, with black bars only when the aspect ratios differ. Playback continues uninterrupted. Single-click still plays/pauses (after a short delay to distinguish a double-click), the existing fullscreen button and **F** shortcut work, and **Esc** exits fullscreen.
 
-Web player development is currently independent of both the earlier desktop edition and DK Browser development. GitHub Pages does not stream movies stored on your home computer by itself: remote playback requires a reachable media URL and a browser-supported codec. Local files remain on your device, and saved links do not automatically synchronize across browsers. Firefox and browsers without the required file APIs continue using the standard session-only file input. The former above-100% boost has been removed following reports of audio skipping; saved boosted volumes are clamped to 100% on load. DK Browser development remains separate. No codec or DRM support is added by the player webpage itself.
+Web player development is currently independent of both the earlier desktop edition and DK Browser development. GitHub Pages does not stream movies stored on your home computer by itself: playback depends on the browser's supported codecs. Local files remain on your device. Firefox and browsers without the required file APIs continue using the standard session-only file input. The former above-100% boost has been removed following reports of audio skipping; saved boosted volumes are clamped to 100% on load. DK Browser development remains separate. No codec or DRM support is added by the player webpage itself.
 
 ### Web player interface
 
-The web player uses the approved **Soviet poster** in `docs/images/soviet-poster.png` and transparent **golden hammer-and-sickle wreath with red star** in `docs/images/golden-emblem.png`, using the original image blobs in `assets/images/`. The red-and-gold ДК header icon is preserved, and the earlier SVG background is inactive. The emblem is shown only when the player is empty. Empty-screen instructions now have distinct spacing, and long restore filenames are truncated rather than overflowing. Its functional video area stays black and unfiltered. **YouTube-style seek and playback controls** now overlay the bottom of the movie and fade while playing, returning on pointer movement, pause or focus. The right-click menu and media information panel are outside the overlay controls so they cannot expand or move the picture. The Play button is red and the unnecessary **Save URL to Library** button has been removed. The cursor disappears after **three seconds** of inactivity over a loaded video in normal or fullscreen view, reappears on movement, and stays visible when using controls or menus. Right-clicking the video opens a custom keyboard-accessible context menu for play/pause, queue navigation, speed, SRT/VTT loading and browser-exposed subtitle/audio tracks, chapters when tracks are available, aspect-ratio fitting, picture-in-picture, fullscreen and basic media information (name, duration, resolution, file size when known). Unavailable audio-track selection is visibly disabled rather than claimed to work.
+The web player uses the approved **Soviet poster** in `docs/images/soviet-poster.png` and transparent **golden hammer-and-sickle wreath with red star** in `docs/images/golden-emblem.png`, using the original image blobs in `assets/images/`. The red-and-gold ДК header icon is preserved, and the earlier SVG background is inactive. The emblem is shown only when the player is empty. Empty-screen instructions now have distinct spacing, and long restore filenames are truncated rather than overflowing. Its functional video area stays black and unfiltered. **YouTube-style seek and playback controls** now overlay the bottom of the movie and fade while playing, returning on pointer movement, pause or focus. The right-click menu and media information panel are outside the overlay controls so they cannot expand or move the picture. The Play button is red and local-file playback stays the focus. The cursor disappears after **three seconds** of inactivity over a loaded video in normal or fullscreen view, reappears on movement, and stays visible when using controls or menus. Right-clicking the video opens a custom keyboard-accessible context menu for play/pause, queue navigation, speed, SRT/VTT loading and browser-exposed subtitle/audio tracks, chapters when tracks are available, aspect-ratio fitting, picture-in-picture, fullscreen and basic media information (name, duration, resolution, file size when known). Unavailable audio-track selection is visibly disabled rather than claimed to work.
 
 This UI is intentionally reversible: its controls are fully contained in one dedicated source commit, and its background is an independent SVG asset. Local video is never uploaded or duplicated. Expanded title/poster/series metadata discovery requires a separate implementation and provider selection.
 
@@ -39,7 +39,7 @@ This UI is intentionally reversible: its controls are fully contained in one ded
 
 The upper-right corner contains only the language selector, offering **English** and **Русский**. Media files are opened using the player or playlist's existing file buttons. The selection is
 saved locally in the browser and changes the navigation, player labels, help,
-library, notifications, title, and right-click controls without reloading or
+notifications, title, and right-click controls without reloading or
 stopping playback. Local filenames and media audio are not translated. In Russian mode, the illustrative media URL placeholder is localized (`https://пример.рф/фильм.mp4`); real URLs and user-entered addresses are always kept as-is.
 
 The video right-click menu is grouped into compact, expandable **Playback**,
@@ -51,6 +51,16 @@ translation does not add codecs to Firefox.
 
 The picture-in-picture and fullscreen controls use matching SVG icons with
 the same 36-pixel hit area and vertically centered alignment.
+
+### Single-screen local player
+
+DK Media now opens directly to the original player screen without Player, Library
+or Help navigation. The header has only DK Media and its language selector.
+The welcome text reads “Choose a video or music file from this device.” The
+existing emblem, Open files, Restore last file, drag-and-drop, Up Next playlist,
+subtitles and media controls remain. The direct URL entry and saved-links
+library are removed. There is no TMDb token prompt. The footer keeps only
+“DK Media · DK Softworks”.
 
 ### Up Next playlist, thumbnails and motion previews
 
@@ -114,10 +124,10 @@ DK Softworks-owned source covered by the custom no-resale license. The
 Jellyfin Web server API is not required.
 
 **TVmaze** works without a user API key. Optionally, a user can enter a
-**TMDb API Read Access Token** on the Help page to fetch film artwork and
-fill missing TV episode pictures; no token is included with the player.
-The token is stored only in this browser tab's session storage and can be
-cleared. The user can disable automatic artwork lookups. Requests contain
+**TMDb API Read Access Token** in the older Help interface to fetch film artwork.
+This field and the Help page are removed from the current player. TVmaze
+episode images load automatically with no user token, and TMDb lookups are
+inactive. Requests contain
 derived title/season/episode identifiers, never the local video bytes,
 file handles or full paths. There is no automatic metadata sharing when
 automatic lookup is disabled. API responses and images are loaded directly

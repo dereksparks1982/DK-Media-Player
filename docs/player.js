@@ -4,9 +4,7 @@
   const media = byId("media");
   const screen = byId("screen");
   const queueView = byId("queue");
-  const libraryView = byId("libraryList");
   const store = {
-    links: "dkmedia.web.links.v1",
     resume: "dkmedia.web.resume.v1",
     volume: "dkmedia.web.volume.v2",
     lastMedia: "dkmedia.web.last-media.v1",
@@ -22,16 +20,9 @@
     try { localStorage.setItem(key, JSON.stringify(value)); }
     catch (_) { /* Playback still works if storage is unavailable. */ }
   };
-  const validURL = text => {
-    try {
-      const url = new URL(text);
-      return ["https:", "http:"].includes(url.protocol) ? url.href : null;
-    } catch (_) { return null; }
-  };
-  const savedLinks = read(store.links, []);
   const resumeData = read(store.resume, {});
   const state = {
-    queue: [], current: -1, links: Array.isArray(savedLinks) ? savedLinks.filter(x => x && validURL(x.url) && typeof x.name === "string") : [],
+    queue: [], current: -1,
     resume: resumeData && typeof resumeData === "object" && !Array.isArray(resumeData) ? resumeData : {},
     subtitleObject: null, subtitleNode: null, lastResumeSave: 0,
     restoreHandle: null, restorePickerPending: false, stopped: false,
@@ -93,10 +84,7 @@
     byId("restoreHint").hidden = true;
   };
   const rememberSelectedMedia = item => {
-    if (item.kind === "url") {
-      write(store.lastMedia, {kind: "url", name: item.name, url: item.src});
-      updateStoredHandle(null);
-    } else if (item.handle) {
+    if (item.handle) {
       write(store.lastMedia, {kind: "file", name: item.name});
       updateStoredHandle(item.handle);
     } else {
@@ -200,7 +188,7 @@
     const length = media.duration;
     const seekable = Number.isFinite(length) && length > 0;
     byId("currentTime").textContent = time(media.currentTime);
-    byId("duration").textContent = seekable ? time(length) : current() ? "LIVE" : "0:00";
+    byId("duration").textContent = seekable ? time(length) : "0:00";
     byId("seek").disabled = !current() || !seekable;
     byId("rewind10").disabled = !current() || !seekable || state.stopped;
     byId("forward10").disabled = !current() || !seekable || state.stopped;
@@ -243,7 +231,7 @@
       title.textContent = item.name;
       const source = document.createElement("span");
       source.className = "item-meta";
-      source.textContent = item.kind === "file" ? "Local file" : "Remote URL";
+      source.textContent = "Local file";
       labels.append(title, source);
       play.append(artworkBox, labels);
       play.addEventListener("click", () => load(index));
@@ -270,7 +258,7 @@
     screen.classList.add("empty");
     screen.classList.remove("audio", "stopped", "cursor-hidden", "ui-hidden");
     byId("emptyTitle").textContent = "Ready when you are";
-    byId("emptyDescription").textContent = "Choose a video or music file from this device, or open a direct stream below.";
+    byId("emptyDescription").textContent = "Choose a video or music file from this device.";
     byId("nowTitle").textContent = "Nothing playing";
     byId("nowSource").textContent = "Select media to get started";
     byId("kindBadge").textContent = "Ready";
@@ -283,7 +271,7 @@
     formatTime: time
   });
   const playCurrent = () => {
-    if (!current()) { status("Open a media file or paste a direct video link first."); return; }
+    if (!current()) { status("Open a video or music file first."); return; }
     if (state.stopped) {
       state.stopped = false;
       screen.classList.remove("empty", "stopped");
@@ -313,8 +301,8 @@
     applySubtitlePreference();
     screen.classList.remove("ui-hidden", "cursor-hidden");
     byId("nowTitle").textContent = item.name;
-    byId("nowSource").textContent = item.kind === "file" ? "Local device · Not uploaded" : item.src;
-    byId("kindBadge").textContent = item.kind === "file" ? "LOCAL" : "STREAM";
+    byId("nowSource").textContent = "Local device";
+    byId("kindBadge").textContent = "LOCAL";
     renderQueue();
     updateTime();
     status("");
@@ -403,14 +391,9 @@
   const restoreLastMedia = async () => {
     const saved = read(store.lastMedia, null);
     if (!saved || state.queue.length) return;
-    if (saved.kind === "url" && validURL(saved.url)) {
-      state.queue.push({
-        kind: "url", name: saved.name || titleFromUrl(saved.url),
-        src: saved.url, key: "url:" + saved.url,
-        audio: /\.(mp3|m4a|aac|wav|flac|opus)(?:[?#]|$)/i.test(saved.url)
-      });
-      load(0, false);
-      status("Last stream restored. Press Play to resume.", true);
+    if (saved.kind === "url") {
+      // Do not reopen links remembered by an older release.
+      try { localStorage.removeItem(store.lastMedia); } catch (_) {}
       return;
     }
     if (saved.kind !== "file" && saved.kind !== "temporary-file") return;
@@ -457,79 +440,6 @@
     status("Choose your previously opened file to restore its saved position.");
     await openLocalFiles(false);
   });
-  const titleFromUrl = url => {
-    try {
-      const part = decodeURIComponent(new URL(url).pathname.split("/").filter(Boolean).pop() || "");
-      return part || "Remote media";
-    } catch (_) { return "Remote media"; }
-  };
-  const addUrl = (raw, name) => {
-    const url = validURL(raw.trim());
-    if (!url) { status("Enter a direct HTTP or HTTPS link to a media file."); return; }
-    const item = {kind: "url", name: name.trim() || titleFromUrl(url), src: url, key: "url:" + url, audio: /\.(mp3|m4a|aac|wav|flac|opus)(?:[?#]|$)/i.test(url)};
-    state.queue.push(item);
-    load(state.queue.length - 1);
-    status("Direct media URL added. If playback fails, check the source and format.", true);
-    byId("urlName").value = "";
-  };
-  const renderLibrary = () => {
-    libraryView.replaceChildren();
-    byId("clearLibrary").disabled = state.links.length === 0;
-    if (!state.links.length) {
-      const empty = document.createElement("li");
-      empty.className = "empty-copy";
-      empty.textContent = "No saved links yet.";
-      libraryView.append(empty);
-      return;
-    }
-    for (const item of state.links) {
-      const li = document.createElement("li");
-      const details = document.createElement("div");
-      details.className = "saved-meta";
-      const title = document.createElement("strong");
-      title.textContent = item.name;
-      const location = document.createElement("small");
-      location.textContent = item.url;
-      details.append(title, location);
-      const actions = document.createElement("div");
-      actions.className = "saved-actions";
-      const play = document.createElement("button");
-      play.className = "btn primary small";
-      play.textContent = "Play";
-      play.type = "button";
-      play.addEventListener("click", () => {
-        addUrl(item.url, item.name);
-        showPage("player");
-      });
-      const remove = document.createElement("button");
-      remove.className = "btn ghost small";
-      remove.textContent = "Remove";
-      remove.type = "button";
-      remove.addEventListener("click", () => {
-        state.links = state.links.filter(link => link.url !== item.url);
-        write(store.links, state.links);
-        renderLibrary();
-      });
-      actions.append(play, remove);
-      li.append(details, actions);
-      libraryView.append(li);
-    }
-  };
-  const showPage = name => {
-    if (!["player", "library", "help"].includes(name)) name = "player";
-    for (const page of ["player", "library", "help"]) byId("page-" + page).hidden = page !== name;
-    document.querySelectorAll("[data-nav]").forEach(button => {
-      if (button.dataset.nav === name) button.setAttribute("aria-current", "page");
-      else button.removeAttribute("aria-current");
-    });
-  };
-  document.querySelectorAll("[data-nav]").forEach(button => button.addEventListener("click", () => {
-    const name = button.dataset.nav;
-    showPage(name);
-    if (location.hash !== "#" + name) location.hash = name;
-  }));
-  addEventListener("hashchange", () => showPage(location.hash.slice(1)));
-  showPage(location.hash.slice(1));
   for (const id of ["openEmpty", "addQueueFiles"]) {
     byId(id).addEventListener("click", openLocalFiles);
   }
@@ -550,16 +460,6 @@
     screen.classList.remove("dragging");
   });
   screen.addEventListener("drop", event => addFiles(event.dataTransfer && event.dataTransfer.files));
-  byId("urlForm").addEventListener("submit", event => {
-    event.preventDefault();
-    addUrl(byId("urlInput").value, byId("urlName").value);
-  });
-  byId("clearLibrary").addEventListener("click", () => {
-    if (!state.links.length || !confirm(window.DKLocale ? window.DKLocale.t("Remove all saved links from this browser?") : "Remove all saved links from this browser?")) return;
-    state.links = [];
-    write(store.links, state.links);
-    renderLibrary();
-  });
   byId("clearQueue").addEventListener("click", () => {
     // Clearing Up Next should not interrupt the episode currently on screen.
     const old = state.queue.splice(state.current + 1);
@@ -717,8 +617,8 @@
   media.addEventListener("error", () => {
     if (!current() || !media.error) return;
     const code = media.error.code;
-    const message = code === 4 ? "This file or stream isn't supported by your browser, or the URL isn't direct media." :
-      code === 2 ? "Network error: the remote media couldn't be reached." :
+    const message = code === 4 ? "This file format isn't supported by your browser." :
+      code === 2 ? "The media file couldn't be read." :
       code === 3 ? "The browser couldn't decode this media format." :
       "Unable to play this media source.";
     status(message);
@@ -1079,7 +979,7 @@
     }
     const tag = event.target && event.target.tagName;
     if (["INPUT", "TEXTAREA", "SELECT", "BUTTON"].includes(tag) ||
-        byId("page-player").hidden || !current()) return;
+        !current()) return;
     const key = event.key.toLowerCase();
     if ([" ", "k", "arrowleft", "arrowright", "arrowup", "arrowdown", "f", "m"].includes(key)) event.preventDefault();
     if (key === " " || key === "k") byId("playPause").click();
@@ -1098,7 +998,6 @@
     clearSubtitles();
     state.queue.forEach(item => { if (item.kind === "file") URL.revokeObjectURL(item.src); });
   });
-  renderLibrary();
   idle();
   // A restored file stays paused until the user presses Play.
   restoreLastMedia();
