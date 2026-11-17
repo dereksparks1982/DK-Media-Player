@@ -25,6 +25,8 @@
     queue: [], current: -1,
     resume: resumeData && typeof resumeData === "object" && !Array.isArray(resumeData) ? resumeData : {},
     subtitleObject: null, subtitleNode: null, lastResumeSave: 0,
+    subtitleEpoch: 0, mkvSubtitleAbort: null, mkvSubtitlePending: false,
+    activeEmbeddedTrack: null,
     restoreHandle: null, restorePickerPending: false, stopped: false,
     subtitlePreference: (() => {
       const pref = read(store.subtitlePreference, {mode: "off"});
@@ -138,7 +140,8 @@
     const showing = subtitleTracks().find(track => track.mode === "showing");
     const item = current();
     const detected = item && item.embeddedSubtitles ? item.embeddedSubtitles.length : 0;
-    byId("subtitleLabel").textContent = showing ?
+    byId("subtitleLabel").textContent = state.mkvSubtitlePending ?
+      "Reading embedded MKV subtitles…" : showing ?
       "Subtitles: " + (showing.label || showing.language || "On") :
       detected ? "Subtitles off · " + detected + " embedded MKV track" +
         (detected === 1 ? "" : "s") + " found" : "Subtitles off";
@@ -164,9 +167,64 @@
     applySubtitlePreference();
   };
   const clearSubtitles = () => {
+    // Invalidate pending reads when changing video, subtitle choice or closing.
+    state.subtitleEpoch++;
+    if (state.mkvSubtitleAbort) {
+      state.mkvSubtitleAbort.abort();
+      state.mkvSubtitleAbort = null;
+    }
+    state.mkvSubtitlePending = false;
+    state.activeEmbeddedTrack = null;
     if (state.subtitleNode) { state.subtitleNode.remove(); state.subtitleNode = null; }
     if (state.subtitleObject) { URL.revokeObjectURL(state.subtitleObject); state.subtitleObject = null; }
     updateSubtitleStatus();
+  };
+  const installSubtitleVTT = (vtt, label, language, embeddedNumber = null) => {
+    clearSubtitles();
+    state.subtitleObject = URL.createObjectURL(new Blob([vtt], {type: "text/vtt"}));
+    const node = document.createElement("track");
+    node.kind = "subtitles";
+    node.label = label;
+    node.srclang = normalizeSubtitleLanguage(language) || "und";
+    node.src = state.subtitleObject;
+    node.default = false;
+    // Install before applying preference so the browser has a TextTrack.
+    media.append(node);
+    state.subtitleNode = node;
+    state.activeEmbeddedTrack = embeddedNumber;
+    chooseSubtitleTrack({label, language: node.srclang});
+    node.addEventListener("load", applySubtitlePreference, {once: true});
+    node.addEventListener("error", () => status("The browser couldn't display this subtitle track."), {once: true});
+    applySubtitlePreference();
+  };
+  const loadEmbeddedTrack = async track => {
+    const item = current();
+    if (!item || !item.file || !window.DKMkvSubtitles ||
+        !window.DKMkvSubtitles.canExtract(track.codec)) return;
+    clearSubtitles();
+    const epoch = state.subtitleEpoch;
+    const controller = new AbortController();
+    state.mkvSubtitleAbort = controller;
+    state.mkvSubtitlePending = true;
+    updateSubtitleStatus();
+    status("Reading embedded MKV subtitles…");
+    try {
+      const result = await window.DKMkvSubtitles.extractTextTrack(item.file, track,
+        {signal: controller.signal});
+      if (controller.signal.aborted || epoch !== state.subtitleEpoch ||
+          current() !== item) return;
+      const label = (track.name || track.language || "Subtitle " + track.number) + " · MKV";
+      installSubtitleVTT(result.vtt, label, track.language, track.number);
+      status("Embedded MKV text subtitles loaded. Video playback still depends on browser codecs.", true);
+    } catch (error) {
+      if (controller.signal.aborted || epoch !== state.subtitleEpoch ||
+          current() !== item) return;
+      state.mkvSubtitleAbort = null;
+      state.mkvSubtitlePending = false;
+      updateSubtitleStatus();
+      status("Couldn't read embedded MKV subtitles: " +
+        (error && error.message ? error.message : "Unknown format"));
+    }
   };
   const updateButtons = () => {
     const item = current();
@@ -794,7 +852,11 @@
     catch (_) { return []; }
   };
   const switchSubtitles = index => {
-    chooseSubtitleTrack(index >= 0 ? subtitleTracks()[index] || null : null);
+    const selected = index >= 0 ? subtitleTracks()[index] || null : null;
+    if (state.mkvSubtitlePending ||
+        (state.subtitleNode && (!selected || selected !== state.subtitleNode.track)))
+      clearSubtitles();
+    chooseSubtitleTrack(selected);
   };
   const buildContextMenu = () => {
     contextMenu.replaceChildren();
@@ -815,18 +877,23 @@
       {checked: tracks.every(track => track.mode !== "showing")});
     tracks.forEach((track, index) => addMenuItem(
       track.label || track.language || "Subtitle track " + (index + 1),
-      () => chooseSubtitleTrack(track), {checked: track.mode === "showing"}));
+      () => switchSubtitles(index), {checked: track.mode === "showing"}));
     const item = current();
     if (item && item.mkvInspection && item.mkvInspection !== "not-mkv") {
       const embedded = item.embeddedSubtitles || [];
       if (embedded.length) {
-        addMenuSubheading("MKV embedded tracks (file header)");
+        addMenuSubheading("MKV embedded subtitles");
         embedded.forEach(track => {
-          const exposed = tracks.some(t => (track.name && t.label === track.name) ||
-            (track.language && normalizeSubtitleLanguage(t.language) === normalizeSubtitleLanguage(track.language)));
-          if (!exposed) addMenuItem((track.name || track.language || "Subtitle") + " · " +
-            track.codec + " · Needs DK Browser", () => {}, {disabled: true,
-              reason: "MKV subtitle track is detected but not exposed for playback by this browser."});
+          const name = track.name || track.language || "Subtitle " + track.number;
+          const supported = !!(window.DKMkvSubtitles &&
+            window.DKMkvSubtitles.canExtract(track.codec));
+          const selected = state.activeEmbeddedTrack === track.number &&
+            tracks.some(t => t.mode === "showing" && state.subtitleNode &&
+              t === state.subtitleNode.track);
+          addMenuItem(name + " · " + track.codec +
+            (supported ? "" : " · Codec unsupported"), () => { void loadEmbeddedTrack(track); },
+            {checked: supported ? selected : undefined, disabled: !supported,
+              reason: "This subtitle codec requires a decoder (for example PGS/VobSub)."});
         });
       } else if (item.mkvInspection === "pending") {
         addMenuItem("Checking MKV subtitle tracks…", () => {}, {disabled: true});
@@ -949,24 +1016,14 @@
   byId("subtitlePicker").addEventListener("change", async event => {
     const file = event.target.files && event.target.files[0];
     event.target.value = "";
-    if (!file || !current()) return;
+    const selectedItem = current();
+    if (!file || !selectedItem) return;
     if (!/\.(srt|vtt)$/i.test(file.name)) { status("Choose a .vtt or .srt subtitle file."); return; }
     try {
       if (!window.DKSubtitleText) throw new Error("Subtitle conversion unavailable");
       const body = window.DKSubtitleText.toWebVTT(await file.text(), file.name);
-      clearSubtitles();
-      state.subtitleObject = URL.createObjectURL(new Blob([body], {type: "text/vtt"}));
-      const track = document.createElement("track");
-      track.kind = "subtitles";
-      track.label = file.name;
-      track.srclang = "en";
-      track.src = state.subtitleObject;
-      track.default = false;
-      media.append(track);
-      state.subtitleNode = track;
-      chooseSubtitleTrack({label: file.name, language: track.srclang});
-      track.addEventListener("load", applySubtitlePreference, {once: true});
-      applySubtitlePreference();
+      if (current() !== selectedItem) return; // Media changed while reading.
+      installSubtitleVTT(body, file.name, "und");
       status("Subtitle track loaded.", true);
     } catch (_) { status("Couldn't read that subtitle file."); }
   });

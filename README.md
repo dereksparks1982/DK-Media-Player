@@ -50,9 +50,10 @@ stopping playback. Local filenames and media audio are not translated. In Russia
 The video right-click menu is grouped into compact, expandable **Playback**,
 **Subtitles**, **Audio tracks**, **Speed**, and **Picture** sections, with a direct
 **Media information** action. Subtitles is visible immediately on opening the
-menu rather than being buried beneath the speed options. Unavailable embedded
-MKV subtitle tracks remain clearly labeled as unavailable; an interface
-translation does not add codecs to Firefox.
+menu rather than being buried beneath the speed options. Text subtitles
+embedded in local MKV files can now be extracted and switched on from this
+menu when the codec is supported; image-based subtitle tracks stay visibly
+disabled rather than pretending the browser can render them.
 
 The picture-in-picture and fullscreen controls use matching SVG icons with
 the same 36-pixel hit area and vertically centered alignment.
@@ -170,7 +171,27 @@ and location; only the chevron is inset from the right edge.
 
 **Stop** now displays the golden emblem again and resets the selected movie's playback position, while keeping the same source ready to **Play** from the beginning without a file picker. Pause continues to retain the picture and resume position. Subtitles are off by default, and the selected browser-exposed subtitle track/language or "off" preference persists locally across viewing sessions. Loading an SRT/VTT file explicitly enables it.
 
-The lightweight `docs/mkv-tracks.js` inspector reads only a bounded portion of a user-selected MKV's header, identifies embedded subtitle track name/language/codec information, and shows it in the right-click menu when available. This **does not mean** Firefox or another browser can actually decode those embedded MKV subtitles. Tracks that cannot be controlled through the browser remain disabled in the menu. Full embedded MKV subtitle decoding and persistent folder access are planned for DK Browser.
+The lightweight `docs/mkv-tracks.js` inspector reads a bounded part of each
+selected MKV header to identify embedded subtitle tracks (language, name,
+codec, and track number). When you right-click the video, open **Subtitles**
+and select one of the embedded text tracks. The new
+`docs/mkv-subtitles.js` reader scans the local file using bounded
+`File.slice()` windows, extracts timed subtitle blocks, and converts them into
+a browser-native WebVTT track. **SubRip / UTF-8, ASCII, and ASS/SSA text
+subtitles** are supported, including ASS/SSA dialogue with basic line breaks;
+complex ASS positioning, fonts, animations and styling are not reproduced.
+Selected subtitles can be turned **off** or switched to another available
+track; an in-progress scan is cancelled when the video or subtitle choice
+changes. External SRT/VTT loading still works.
+
+The extraction runs entirely on the device, without uploading the movie or
+loading third-party code. Large MKV files may take time to scan on first
+selection. A safety cap limits oversized subtitle payloads or cue collections.
+Image subtitles such as **PGS and VobSub**, compressed/complex subtitle
+encodings and video/audio codecs unsupported by the browser **remain
+unsupported**. Embedded text extraction does not make an otherwise unplayable
+MKV video playable. No FFmpeg/WebAssembly decoder has been added. Full format
+compatibility and persistent folder access remain separate future work.
 
 ## DK Browser integration
 
