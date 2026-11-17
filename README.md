@@ -7,7 +7,9 @@
 This identifies the present project or its stewardship; it does not change existing licenses, copyright holders, original creators, or historical credits.
 
 
-**Current development: DK Media Player is web-only.** The active player runs from `docs/` through GitHub Pages. It will later become part of DK Browser; no new standalone desktop player is being developed.
+**Current development: DK Media Player is web-only.** Its web interface displays
+**DK Media** in English and **ДК Медиа** in Russian. The repository name, source
+identifiers, licensing and project history remain DK Media Player. The active player runs from `docs/` through GitHub Pages. It will later become part of DK Browser; no new standalone desktop player is being developed.
 
 The repository also contains preserved legacy **DK Media v0.1.11** desktop-era source and documentation, which are historical artifacts, not today's product direction.
 

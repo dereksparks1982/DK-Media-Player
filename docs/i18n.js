@@ -4,7 +4,7 @@
   "use strict";
   const key = "dkmedia.web.language.v1";
   const translations = {
-    "DK MEDIA PLAYER":"ДК МЕДИАПЛЕЕР",
+    "DK MEDIA":"ДК МЕДИА",
     "DK Softworks":"ДК Софтворкс",
     "Artwork:":"Изображения:",
     "TVmaze":"ТВмейз",
@@ -17,7 +17,7 @@
     "Use your TMDb Read Access Token.":"Введите ключ доступа ТМДБ.",
     "Episode artwork":"Изображение серии",
     "Movie posters require an optional TMDb token":"Для обложек фильмов необходим ключ ТМДБ",
-    "DK Media Player home":"Главная страница ДК Медиаплеера",
+    "DK Media home":"Главная страница ДК Медиа",
     "Player":"Плеер", "Library":"Медиатека", "Help":"Справка",
     "＋ Open media":"＋ Открыть медиа", "Open media":"Открыть медиа",
     "Interface language":"Язык интерфейса",
@@ -79,8 +79,8 @@
     "Stop displays the golden emblem again and Play restarts the same movie from the beginning. Move the pointer over the movie to reveal the seek bar and playback controls, YouTube-style. Hover or focus the timeline for a timestamp preview and a video frame when supported for a local file. They fade while playing and stay visible when paused. Double-click the picture for fullscreen; Esc exits. Right-click the video to open playback speed, subtitles, available audio tracks and chapters, aspect ratio, fullscreen, and media information. Unavailable browser track options are labeled rather than simulated. Space/K: play/pause; arrows: seek or volume; F: fullscreen; M: mute.":"Кнопка «Стоп» возвращает золотую эмблему, а «Воспроизвести» запускает тот же фильм с начала. Наведите указатель на видео, чтобы показать полосу перемотки и кнопки управления. При наведении на шкалу времени может появиться изображение кадра. Во время просмотра элементы управления скрываются, а на паузе остаются видимыми. Двойной щелчок переключает полный экран, а клавиша выхода закрывает его. Правый щелчок открывает скорость, субтитры, аудиодорожки, главы, формат изображения и сведения о файле. Недоступные возможности отмечены как недоступные. Пробел включает и приостанавливает воспроизведение, стрелки управляют перемоткой и громкостью.",
     "iPhone and iPad":"Айфон и Айпад",
     "Use Safari or another browser to select a local file or open a direct media URL. You can add this site to your Home Screen. iOS supports HLS streams natively; other codecs vary by device.":"В Сафари или другом браузере можно выбрать местный файл либо открыть прямую ссылку. Сайт можно добавить на главный экран. Поддержка потокового видео и других форматов зависит от устройства.",
-    "DK Media Player is free software. This web player runs independently in your browser, using video formats supported by that browser.":"ДК Медиаплеер распространяется бесплатно. Веб-плеер работает непосредственно в браузере и поддерживает доступные ему видеоформаты.",
-    "DK Media Player · DK Softworks":"ДК Медиаплеер · ДК Софтворкс",
+    "DK Media is free software. This web player runs independently in your browser, using video formats supported by that browser.":"ДК Медиа распространяется бесплатно. Веб-плеер работает непосредственно в браузере и поддерживает доступные ему видеоформаты.",
+    "DK Media · DK Softworks":"ДК Медиа · ДК Софтворкс",
     "Private local playback · No media uploads":"Локальное воспроизведение · Без загрузки файлов",
     "Choose media files":"Выберите медиафайлы", "Choose subtitle file":"Выберите файл субтитров",
     "Playback":"Воспроизведение", "Speed":"Скорость", "Audio tracks":"Аудиодорожки",
@@ -256,7 +256,13 @@
   }
   function apply() {
     document.documentElement.lang = language;
-    document.title = language === "ru" ? "ДК Медиаплеер | Веб" : "DK Media Player | Web";
+    document.title = language === "ru" ? "ДК Медиа | Веб" : "DK Media | Web";
+    const manifest = document.querySelector('link[rel="manifest"]');
+    if (manifest) manifest.href =
+      language === "ru" ? "./manifest-ru.webmanifest?v=20261117-2" :
+      "./manifest.webmanifest?v=20261117-2";
+    const appleTitle = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+    if (appleTitle) appleTitle.content = language === "ru" ? "ДК Медиа" : "DK Media";
     const selector = document.getElementById("languageSelect");
     if (selector) {
       selector.value = language;
