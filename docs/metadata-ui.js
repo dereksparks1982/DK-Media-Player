@@ -7,7 +7,8 @@
  if(typeof document==="undefined"||!window.DKMediaMetadata)return;
  const queue=document.getElementById("queue");
  if(!queue)return;
- const enabled=true,token="",generation=0;
+ const enabled=true,token="";
+ let generation=0;
  let seen=new WeakSet(),cache=new Map(),retryScheduled=null;
  const retried=new Set(),retryQueue=new Set();
  const choose=(item,opts)=>window.DKJellyfinArtwork?

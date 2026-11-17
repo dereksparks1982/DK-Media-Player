@@ -160,7 +160,7 @@ assert.match(metaSource, /fallbackUrl:data\.series/);
 assert.match(artUI, /scheduleRetry/);
 assert.match(artUI, /dataset\.artworkStatus/);
 assert.match(artUI, /image\.onerror=/);
-assert.match(artUI, /enabled=true,token="",generation=0/);
+assert.match(artUI, /enabled=true,token=""/);
 assert.match(html, /Choose a video or music file from this device\./);
 assert.doesNotMatch(html, /data-nav=|id="page-library"|id="page-help"|id="urlForm"|Private local playback/);
 assert.doesNotMatch(js, /byId\("urlForm"\)|byId\("clearLibrary"\)|renderLibrary\(/);
