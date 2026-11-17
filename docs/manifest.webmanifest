@@ -1,6 +1,6 @@
 {
-  "name": "DK Media",
-  "short_name": "DK Media",
+  "name": "DK Kinehall",
+  "short_name": "DK Kinehall",
   "description": "Free browser video and audio player from DK Softworks",
   "start_url": "./",
   "scope": "./",

@@ -15,8 +15,9 @@ chmod +x "$HOME/.local/bin/dkmedia"
 cat > "$HOME/.local/share/applications/dkmedia.desktop" <<DESK
 [Desktop Entry]
 Type=Application
-Name=DK Media
-Comment=Original DK Media Linux player
+Name=DK Kinehall
+Name[ru]=ДК Кинехолл
+Comment=Classic local video and audio player
 Exec=$HOME/.local/bin/dkmedia %F
 Terminal=false
 Categories=AudioVideo;Player;
@@ -26,4 +27,4 @@ StartupNotify=true
 DESK
 chmod +x "$HOME/.local/share/applications/dkmedia.desktop"
 command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database "$HOME/.local/share/applications" >/dev/null 2>&1 || true
-printf '\nDK Media desktop launcher installed.\nRun: %s/.local/bin/dkmedia\n' "$HOME"
+printf '\nDK Kinehall desktop launcher installed.\nRun: %s/.local/bin/dkmedia\n' "$HOME"

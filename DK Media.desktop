@@ -1,7 +1,8 @@
 [Desktop Entry]
 Type=Application
-Name=DK Media
-Comment=Original DK Media Linux player
+Name=DK Kinehall
+Name[ru]=ДК Кинехолл
+Comment=Classic local video and audio player
 Exec=dkmedia %F
 Terminal=false
 Categories=AudioVideo;Player;

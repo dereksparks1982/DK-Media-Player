@@ -34,6 +34,9 @@ const expectations = [
   ["TVmaze", "ТВмейз"],
   ["TMDb", "ТМДБ"],
   ["DK Softworks", "ДК Софтворкс"],
+  ["DK KINEHALL", "ДК КИНЕХОЛЛ"],
+  ["DK Kinehall home", "Главная страница ДК Кинехолл"],
+  ["DK Kinehall · DK Softworks", "ДК Кинехолл · ДК Софтворкс"],
   ["No saved links yet.", "Пока нет сохранённых ссылок."]
 ];
 for (const [english, russian] of expectations)

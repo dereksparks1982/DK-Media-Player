@@ -1,4 +1,4 @@
-# DK Media Player
+# DK Kinehall
 
 ## DK Softworks · House of Culture
 
@@ -7,9 +7,14 @@
 This identifies the present project or its stewardship; it does not change existing licenses, copyright holders, original creators, or historical credits.
 
 
-**Current development: DK Media Player is web-only.** Its web interface displays
-**DK Media** in English and **ДК Медиа** in Russian. The repository name, source
-identifiers, licensing and project history remain DK Media Player. The active player runs independently from `docs/` through GitHub Pages. DK Browser is a separate project; integration is not planned for the current build.
+**Current development: DK Kinehall is web-only.** Its web interface displays
+**DK Kinehall** in English and **ДК Кинехолл** in Russian. The repository is
+[`dkkinehall`](https://github.com/dereksparks1982/dkkinehall). Legacy
+source identifiers, saved-media settings, historical DK Media releases,
+licensing and original attribution remain unchanged. The active player runs
+independently from `docs/` through GitHub Pages. DK NetNav is a separate
+browser project; integration is not part of this name update. The existing
+approved red-and-gold app icon is retained.
 
 The repository also contains preserved legacy **DK Media v0.1.11** desktop-era source and documentation, which are historical artifacts, not today's product direction.
 
@@ -23,7 +28,7 @@ Unknown display text is transliterated rather than left in English; underlying
 media names, links and external API identifiers are not modified.
 
 
-**[Open DK Media Player in your browser](https://dereksparks1982.github.io/DK-Media-Player/)**
+**[Open DK Kinehall in your browser](https://dereksparks1982.github.io/dkkinehall/)**
 
 The web player is published from `docs/` through GitHub Pages and works on desktop browsers and phones. Open video/audio files stored on your device, manage a session playlist, adjust playback and load SRT/VTT subtitles. In DK Browser and browsers supporting the File System Access API, the last selected local file can be remembered through IndexedDB and reloaded at its saved position without picking it again when browser permission remains granted. If permission expires, use **Restore last file**. Firefox and other browsers using session-only file inputs can also click **Restore last file** and select the same movie again to recover the previously saved position. The media player supports normal **0–100% volume** with no Web Audio gain processing, and **mouse-wheel/Up-Down volume changes** (5% steps), plus **double-click the video to enter/exit fullscreen**. Fullscreen and normal playback both use the full video frame without the obsolete 64vh height cap. The picture is fitted without cropping or stretching, with black bars only when the aspect ratios differ. Playback continues uninterrupted. Single-click still plays/pauses (after a short delay to distinguish a double-click), the existing fullscreen button and **F** shortcut work, and **Esc** exits fullscreen.
 
@@ -54,13 +59,13 @@ the same 36-pixel hit area and vertically centered alignment.
 
 ### Single-screen local player
 
-DK Media now opens directly to the original player screen without Player, Library
-or Help navigation. The header has only DK Media and its language selector.
+DK Kinehall now opens directly to the original player screen without Player, Library
+or Help navigation. The header has only DK Kinehall and its language selector.
 The welcome text reads “Choose a video or music file from this device.” The
 existing emblem, Open files, Restore last file, drag-and-drop, Up Next playlist,
 subtitles and media controls remain. The direct URL entry and saved-links
 library are removed. There is no TMDb token prompt. The footer keeps only
-“DK Media · DK Softworks”.
+“DK Kinehall · DK Softworks”.
 
 ### Up Next playlist, thumbnails and motion previews
 
@@ -174,12 +179,12 @@ The lightweight `docs/mkv-tracks.js` inspector reads only a bounded portion of a
 ## Install on Ubuntu / Debian
 
 ```bash
-git clone git@github.com:dereksparks1982/DK-Media-Player.git
-cd DK-Media-Player
+git clone git@github.com:dereksparks1982/dkkinehall.git
+cd dkkinehall
 ./install.sh
 ```
 
-Then launch **DK Media** from the application menu, or run:
+Then launch **DK Kinehall** from the application menu, or run:
 
 ```bash
 dkmedia
@@ -195,7 +200,7 @@ You can also run it directly from the repository without installing the desktop 
 
 The approved red-and-gold Cyrillic ДК cinema emblem is stored in `assets/images/`, including the untouched original `APPROVED_ORIGINAL_1254.png`. The GitHub Pages player publishes copies of only the required icons from `docs/icons/` because Pages cannot serve files outside its publishing folder. The browser tab, web player header, and phone home-screen shortcut use this approved artwork.
 
-The Linux desktop installer places the 256-pixel icon into the user's icon theme. If you installed DK Media before the icon was added, re-run `./install-dk-media-desktop.sh` to refresh the installed icon. The Debian package builder also includes it.
+The Linux desktop installer places the 256-pixel icon into the user's icon theme. If you installed the legacy DK Media edition before the icon was added, re-run `./install-dk-media-desktop.sh` to refresh the installed icon. The Debian package builder also includes it.
 
 ## Runtime dependencies
 
