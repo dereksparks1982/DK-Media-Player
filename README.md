@@ -126,12 +126,14 @@ and the accuracy of video filenames. Credits are provided in the playlist
 and Help page. TVmaze data and provider imagery remain subject to provider
 terms; TMDb does not endorse this player.
 
-**Ten-second controls:** The main video overlay has a **↶ 10** rewind and
-**↷ 10** forward button. Each skips exactly ten seconds, clamped to the
-start/end of the current finite-duration media. Seeking does not alter the
-playback rate. These controls work in ordinary and fullscreen viewing and
-are disabled for non-seekable streams. The right-click ten-second commands
-use the same seek behavior. English/Russian labels are provided.
+**Ten-second controls:** The main video overlay has rewind and forward
+buttons with dedicated SVG curved-arrow icons and centered “10” labels.
+The vector icons no longer rely on font glyph alignment and retain clear
+spacing at smaller widths and in fullscreen. Each skips exactly ten seconds,
+clamped to the start/end of the current finite-duration media. Seeking does not
+alter playback rate. Controls remain disabled for non-seekable streams; the
+right-click commands use the same seeking behavior. English/Russian
+accessibility labels are preserved.
 
 **Add Files** (red) and **Clear Queue** remain above the scrolling Up Next
 playlist, directly below the section heading.

@@ -408,14 +408,23 @@ body {
 .queue .queue-card-detail{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;
  white-space:nowrap;font-size:.54rem;line-height:1.2;color:#ff9b9e}
 
-/* Compact ten-second controls, equally usable in fullscreen or normal view. */
-.screen .controls .skip-ten{position:relative;display:inline-flex;align-items:center;justify-content:center;
-  min-width:42px;min-height:36px;padding:4px 5px;color:#fff;font-size:1.65rem;line-height:1}
-.screen .controls .skip-ten span{position:relative;display:inline-block;min-width:31px}
-.screen .controls .skip-ten small{position:absolute;left:50%;top:51%;transform:translate(-50%,-50%);
-  font-size:.54rem;line-height:1;font-weight:850;color:#fff}
-@media(max-width:640px){.screen .controls .skip-ten{min-width:30px;padding:3px 1px;font-size:1.4rem}
-  .screen .controls .skip-ten span{min-width:26px}}
+/* Crisp vector ten-second seeking, independent of Unicode arrow font metrics. */
+.screen .controls .skip-ten{
+  display:inline-flex;flex:0 0 42px;align-items:center;justify-content:center;
+  width:42px;height:42px;min-width:42px;min-height:42px;
+  padding:3px;color:#fff;line-height:1;
+}
+.screen .controls .skip-ten .seek-ten-icon{
+  display:block;flex:none;width:34px;height:34px;overflow:visible;
+}
+.screen .controls .skip-ten .seek-ten-icon text{
+  fill:currentColor;stroke:none;font:800 11px/1 system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-variant-numeric:tabular-nums;pointer-events:none;user-select:none;
+}
+@media(max-width:640px){
+  .screen .controls .skip-ten{flex-basis:38px;width:38px;height:38px;min-width:38px;min-height:38px;padding:2px}
+  .screen .controls .skip-ten .seek-ten-icon{width:32px;height:32px}
+}
 /* Episode images are real provider artwork, never filename text masquerading as art. */
 .queue .queue-artwork{background:#10121a;border-color:rgba(236,85,90,.28)}
 .queue .queue-artwork-fallback{font-size:1.3rem;color:#de7477}
