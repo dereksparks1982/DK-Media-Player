@@ -56,8 +56,10 @@
      box.classList.add("has-art");
      const placeholder=box.querySelector(".queue-artwork-fallback");
      if(placeholder)placeholder.hidden=true;
-     status(box,art.provider+": "+(art.title||locale("Episode artwork","Изображение серии")),
-       "loaded");
+     const provider=locale(art.provider==="TVmaze"?"TVmaze":art.provider,
+       art.provider==="TVmaze"?"ТВмейз":art.provider==="TMDb"?"ТМДБ":"Источник");
+     const displayTitle=locale(art.title||"Episode artwork","Изображение серии");
+     status(box,provider+": "+displayTitle,"loaded");
    };
    image.onerror=()=>{
      if(!box.isConnected||requestedGeneration!==generation)return;
@@ -116,7 +118,7 @@
      }
      if(parsed.type==="movie"&&!token){
        status(box,locale("Movie posters require an optional TMDb token",
-         "Для обложек фильмов необходим ключ TMDb"),"tmdb-required");
+         "Для обложек фильмов необходим ключ ТМДБ"),"tmdb-required");
        continue;
      }
      const requestedGeneration=generation;
@@ -162,7 +164,8 @@
  apply.addEventListener("click",()=>{
    const value=tokenBox.value.trim();
    if(value&&(value.length<20||value.length>1500)){
-     tokenBox.setCustomValidity("Use your TMDb Read Access Token.");
+     tokenBox.setCustomValidity(locale("Use your TMDb Read Access Token.",
+       "Введите ключ доступа ТМДБ."));
      tokenBox.reportValidity();return;
    }
    tokenBox.setCustomValidity("");

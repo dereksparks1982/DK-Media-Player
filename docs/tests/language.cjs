@@ -7,7 +7,7 @@ const expectations = [
   ["Player", "Плеер"],
   ["Library", "Медиатека"],
   ["Help", "Справка"],
-  ["https://example.com/movie.mp4", "https://пример.рф/фильм.mp4"],
+  ["https://example.com/movie.mp4", "Введите адрес медиафайла"],
   ["Main navigation", "Основная навигация"],
   ["Size", "Размер"],
   ["Format", "Формат"],
@@ -29,10 +29,19 @@ const expectations = [
   ["Added 2 files to the queue.", "Добавлено 2 файла в очередь."],
   ["Audio track 3", "Аудиодорожка 3"],
   ["Subtitles off · 2 embedded MKV tracks found",
-    "Субтитры выключены · Найдено 2 дорожки MKV"],
-  ["My Movie.mkv", "My Movie.mkv"],
-  ["South Park S29E05.mkv", "South Park S29E05.mkv"]
+    "Субтитры выключены · Найдено 2 дорожки МКВ"],
+  ["Artwork:", "Изображения:"],
+  ["TVmaze", "ТВмейз"],
+  ["TMDb", "ТМДБ"],
+  ["DK Softworks", "ДК Софтворкс"],
+  ["No saved links yet.", "Пока нет сохранённых ссылок."]
 ];
 for (const [english, russian] of expectations)
   assert.equal(translate(english), russian, "Incorrect Russian text for " + english);
-console.log("PASS: Russian interface translations and untouched filenames");
+// All fixed translations, unknown interface copy, and displayed local file
+// titles must be Cyrillic-only. Media identifiers themselves are not renamed.
+for (const value of Object.values(translations))
+  assert.doesNotMatch(value, /[A-Za-z]/, "Latin text in a Russian translation");
+for (const label of ["My Movie.mkv", "South Park S29E05.mkv", "TVmaze: Episode artwork"])
+  assert.doesNotMatch(translate(label), /[A-Za-z]/, "Latin text visible in Russian UI");
+console.log("PASS: Cyrillic-only Russian interface text");

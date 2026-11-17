@@ -15,6 +15,12 @@ The old Python/Tkinter/libVLC code and its former yt-dlp/P2P modules remain unto
 
 ## Web player
 
+The Russian interface displays **Cyrillic-only text**, including provider names
+(«ТВмейз», «ТМДБ»), attribution, help copy, tooltips, controls and notifications.
+Unknown display text is transliterated rather than left in English; underlying
+media names, links and external API identifiers are not modified.
+
+
 **[Open DK Media Player in your browser](https://dereksparks1982.github.io/DK-Media-Player/)**
 
 The web player is published from `docs/` through GitHub Pages and works on desktop browsers and phones. Open video/audio files stored on your device, play direct media URLs, manage a session playlist, adjust playback, load SRT/VTT subtitles, and save media links locally in your browser. In DK Browser and browsers supporting the File System Access API, the last selected local file can be remembered through IndexedDB and reloaded at its saved position without picking it again when browser permission remains granted. If permission expires, use **Restore last file**. Firefox and other browsers using session-only file inputs can also click **Restore last file** and select the same movie again to recover the previously saved position. The media player supports normal **0–100% volume** with no Web Audio gain processing, and **mouse-wheel/Up-Down volume changes** (5% steps), plus **double-click the video to enter/exit fullscreen**. Fullscreen and normal playback both use the full video frame without the obsolete 64vh height cap. The picture is fitted without cropping or stretching, with black bars only when the aspect ratios differ. Playback continues uninterrupted. Single-click still plays/pauses (after a short delay to distinguish a double-click), the existing fullscreen button and **F** shortcut work, and **Esc** exits fullscreen.
