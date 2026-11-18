@@ -94,11 +94,17 @@
     "MKV embedded tracks (file header)":"Встроенные дорожки МКВ (заголовок файла)",
     "MKV embedded subtitles":"Встроенные субтитры МКВ",
     "Reading embedded MKV subtitles…":"Чтение встроенных субтитров МКВ…",
+    "Reading embedded PGS graphics…":"Чтение встроенных графических субтитров ПГС…",
+    "PGS subtitles loaded locally. Video still needs a supported browser codec.":"Графические субтитры ПГС загружены. Для видео по-прежнему нужен поддерживаемый браузером кодек.",
+    "Couldn't display PGS subtitles.":"Не удалось показать субтитры ПГС.",
+    "PGS bitmap subtitle track":"Графическая дорожка ПГС",
+    "This subtitle codec still requires a decoder (for example VobSub).":"Для этого формата субтитров по-прежнему необходим декодер.",
     "Codec unsupported":"Неподдерживаемый кодек",
     "This subtitle codec requires a decoder (for example PGS/VobSub).":"Для этого формата субтитров необходим декодер.",
     "The browser couldn't display this subtitle track.":"Браузер не смог показать эту дорожку субтитров.",
     "Embedded MKV text subtitles loaded. Video playback still depends on browser codecs.":"Встроенные текстовые субтитры МКВ загружены. Воспроизведение видео по-прежнему зависит от кодеков браузера.",
     "Unknown format":"Неизвестный формат",
+    "Couldn't read PGS subtitles":"Не удалось прочитать субтитры ПГС",
     "Checking MKV subtitle tracks…":"Поиск субтитров МКВ…",
     "＋ Load SRT / VTT…":"＋ Загрузить файл субтитров…",
     "Track selection not exposed by this browser":"Браузер не предоставляет выбор дорожки",
@@ -171,6 +177,7 @@
       .replace(/Safari/gi, "Сафари")
       .replace(/WebM/gi, "ВебМ")
       .replace(/MKV/gi, "МКВ")
+      .replace(/PGS/gi, "ПГС")
       .replace(/SRT/gi, "СРТ")
       .replace(/VTT/gi, "ВТТ")
       .replace(/MiB/g, "МиБ");
@@ -212,6 +219,8 @@
       translated = "Дорожка субтитров " + m[1];
     if (translated === null && (m = /^Audio track (\d+)$/.exec(plain)))
       translated = "Аудиодорожка " + m[1];
+    if (translated === null && (m = /^Couldn't read PGS subtitles: (.+)$/.exec(plain)))
+      translated = "Не удалось прочитать субтитры ПГС: " + m[1];
     if (translated === null && (m = /^Couldn't read embedded MKV subtitles: (.+)$/.exec(plain)))
       translated = "Не удалось прочитать встроенные субтитры МКВ: " + m[1];
     if (translated === null && (m = /^(.+) · Needs DK Browser$/.exec(plain)))

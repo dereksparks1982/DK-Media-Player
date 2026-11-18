@@ -223,5 +223,82 @@
     if (!foundSegment || !cues.length) throw new Error("No readable text subtitle cues found");
     return {vtt:makeWebVTT(cues), count:cues.length};
   }
-  return {canExtract, subtitleText, makeWebVTT, extractTextTrack};
+  // Reuse the bounded Matroska reader for codec-specific subtitle packets.
+  // Each callback receives one complete selected-track Block payload.
+  async function scanTrackPackets(file, track, callback, options = {}) {
+    if (!file || !/\.(mkv|mks)$/i.test(file.name || "") ||
+        typeof file.slice !== "function" || !Number.isSafeInteger(file.size))
+      throw new Error("Select a local Matroska file");
+    if (!track || !Number.isSafeInteger(track.number) || track.number < 1 ||
+        typeof callback !== "function") throw new Error("Invalid subtitle track");
+    const reader = makeReader(file, options.signal);
+    const onProgress = typeof options.onProgress === "function" ? options.onProgress : null;
+    let lastProgress = 0, scale = 1000000, seenSegment = false, count = 0;
+    const progress = position => {
+      const now = Date.now();
+      if (onProgress && now - lastProgress > 500) {
+        lastProgress = now;
+        onProgress(Math.min(100, Math.floor(100 * position / Math.max(1, file.size))));
+      }
+    };
+    const handle = async (part, clusterTick, durationTicks = null) => {
+      if (part.end - part.start < 4) return;
+      const head = await reader.read(part.start, Math.min(12, part.end - part.start));
+      const number = vint(head, 0, true);
+      if (!number || number.value !== track.number) return;
+      if (part.end - part.start > MAX_BLOCK)
+        throw new Error("Embedded subtitle packet exceeds the size limit");
+      const from = number.width + 3;
+      if (head.length < from) throw new Error("Corrupt subtitle packet");
+      if (head[number.width + 2] & 6)
+        throw new Error("Laced subtitle packets aren't supported");
+      const block = await reader.read(part.start, part.end - part.start);
+      let delta = (block[number.width] << 8) | block[number.width + 1];
+      if (delta & 0x8000) delta -= 65536;
+      const time = Math.max(0, (clusterTick + delta) * scale / 1e9);
+      const duration = durationTicks === null ? null : durationTicks * scale / 1e9;
+      if (!Number.isFinite(time) || (duration !== null && !Number.isFinite(duration)))
+        throw new Error("Invalid Matroska subtitle timestamp");
+      if (++count > 150000) throw new Error("Too many subtitle packets");
+      // Copy before the reader cache can be replaced.
+      await callback({data:block.subarray(from).slice(),time,duration});
+    };
+    for await (const top of reader.children(0, file.size)) {
+      if (top.id !== SEGMENT) continue;
+      seenSegment = true;
+      for await (const part of reader.children(top.start, top.end)) {
+        reader.check();
+        if (part.id === INFO) {
+          for await (const field of reader.children(part.start, part.end)) {
+            if (field.id === TIMESTAMP_SCALE) {
+              scale = unsigned(await reader.read(field.start, field.end - field.start));
+              if (!scale) throw new Error("Invalid Matroska timestamp scale");
+            }
+          }
+        } else if (part.id === CLUSTER) {
+          let clusterTick = 0;
+          for await (const child of reader.children(part.start, part.end)) {
+            if (child.id === CLUSTER_TIME)
+              clusterTick = unsigned(await reader.read(child.start, child.end - child.start));
+            else if (child.id === SIMPLE_BLOCK) await handle(child, clusterTick);
+            else if (child.id === BLOCK_GROUP) {
+              let frame = null, duration = null;
+              for await (const field of reader.children(child.start, child.end)) {
+                if (field.id === BLOCK) frame = field;
+                else if (field.id === BLOCK_DURATION)
+                  duration = unsigned(await reader.read(field.start, field.end - field.start));
+              }
+              if (frame) await handle(frame, clusterTick, duration);
+            }
+          }
+          progress(part.end);
+        }
+      }
+      break;
+    }
+    reader.check();
+    if (!seenSegment) throw new Error("Matroska Segment not found");
+    return count;
+  }
+  return {canExtract, subtitleText, makeWebVTT, extractTextTrack, scanTrackPackets};
 });

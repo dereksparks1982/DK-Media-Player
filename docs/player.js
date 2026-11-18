@@ -3,6 +3,7 @@
   const byId = id => document.getElementById(id);
   const media = byId("media");
   const screen = byId("screen");
+  const pgsCanvas = byId("pgsOverlay");
   const queueView = byId("queue");
   const store = {
     resume: "dkmedia.web.resume.v1",
@@ -27,6 +28,7 @@
     subtitleObject: null, subtitleNode: null, lastResumeSave: 0,
     subtitleEpoch: 0, mkvSubtitleAbort: null, mkvSubtitlePending: false,
     activeEmbeddedTrack: null,
+    activePgsTrack: null, pgsEvents: null, pgsLastFrame: null,
     restoreHandle: null, restorePickerPending: false, stopped: false,
     subtitlePreference: (() => {
       const pref = read(store.subtitlePreference, {mode: "off"});
@@ -141,7 +143,8 @@
     const item = current();
     const detected = item && item.embeddedSubtitles ? item.embeddedSubtitles.length : 0;
     byId("subtitleLabel").textContent = state.mkvSubtitlePending ?
-      "Reading embedded MKV subtitles…" : showing ?
+      "Reading embedded MKV subtitles…" : state.activePgsTrack ?
+      "Subtitles: " + state.activePgsTrack.label + " · PGS" : showing ?
       "Subtitles: " + (showing.label || showing.language || "On") :
       detected ? "Subtitles off · " + detected + " embedded MKV track" +
         (detected === 1 ? "" : "s") + " found" : "Subtitles off";
@@ -166,6 +169,53 @@
     write(store.subtitlePreference, state.subtitlePreference);
     applySubtitlePreference();
   };
+  // PGS graphics occupy the actual picture rectangle, not the black bars.
+  // Keep the image aligned on resize/fullscreen and when picture-fit changes.
+  const positionPgsOverlay = () => {
+    if (!pgsCanvas || !media.videoWidth || !media.videoHeight) return;
+    const box = media.getBoundingClientRect();
+    const outer = screen.getBoundingClientRect();
+    const ratio = media.videoWidth / media.videoHeight;
+    if (!box.width || !box.height || !ratio) return;
+    const cover = screen.classList.contains("fit-cover");
+    const scale = cover ?
+      Math.max(box.width / media.videoWidth,box.height / media.videoHeight) :
+      Math.min(box.width / media.videoWidth,box.height / media.videoHeight);
+    const width = media.videoWidth * scale, height = media.videoHeight * scale;
+    const left = box.left - outer.left + (box.width - width) / 2;
+    const top = box.top - outer.top + (box.height - height) / 2;
+    pgsCanvas.style.left = left + "px";
+    pgsCanvas.style.top = top + "px";
+    pgsCanvas.style.width = width + "px";
+    pgsCanvas.style.height = height + "px";
+    if (cover) {
+      const right = Math.max(0, left + width - outer.width);
+      const bottom = Math.max(0, top + height - outer.height);
+      pgsCanvas.style.clipPath = "inset(" + Math.max(0,-top) + "px " +
+        right + "px " + bottom + "px " + Math.max(0,-left) + "px)";
+    } else pgsCanvas.style.clipPath = "none";
+  };
+  const syncPgsOverlay = () => {
+    const api = window.DKPGS, events = state.pgsEvents;
+    if (!pgsCanvas || !api || !state.activePgsTrack || !events ||
+        !current() || state.stopped || screen.classList.contains("empty")) {
+      if (pgsCanvas) pgsCanvas.hidden = true;
+      return;
+    }
+    const frame = api.frameAt(events,media.currentTime);
+    if (!frame || !frame.regions.length) { pgsCanvas.hidden = true; return; }
+    try {
+      if (state.pgsLastFrame !== frame) {
+        api.render(pgsCanvas,frame);
+        state.pgsLastFrame = frame;
+      }
+      positionPgsOverlay();
+      pgsCanvas.hidden = false;
+    } catch (error) {
+      pgsCanvas.hidden = true;
+      status("Couldn't display PGS subtitles.");
+    }
+  };
   const clearSubtitles = () => {
     // Invalidate pending reads when changing video, subtitle choice or closing.
     state.subtitleEpoch++;
@@ -175,6 +225,13 @@
     }
     state.mkvSubtitlePending = false;
     state.activeEmbeddedTrack = null;
+    state.activePgsTrack = null;
+    state.pgsEvents = null;
+    state.pgsLastFrame = null;
+    if (pgsCanvas) {
+      pgsCanvas.hidden = true;
+      pgsCanvas.getContext("2d").clearRect(0,0,pgsCanvas.width,pgsCanvas.height);
+    }
     if (state.subtitleNode) { state.subtitleNode.remove(); state.subtitleNode = null; }
     if (state.subtitleObject) { URL.revokeObjectURL(state.subtitleObject); state.subtitleObject = null; }
     updateSubtitleStatus();
@@ -223,6 +280,43 @@
       state.mkvSubtitlePending = false;
       updateSubtitleStatus();
       status("Couldn't read embedded MKV subtitles: " +
+        (error && error.message ? error.message : "Unknown format"));
+    }
+  };
+  const loadPgsTrack = async track => {
+    const item = current();
+    if (!item || !item.file || !window.DKPGS ||
+        !window.DKPGS.canRender(track.codec)) return;
+    clearSubtitles();
+    chooseSubtitleTrack(null);
+    const epoch = state.subtitleEpoch;
+    const controller = new AbortController();
+    state.mkvSubtitleAbort = controller;
+    state.mkvSubtitlePending = true;
+    updateSubtitleStatus();
+    status("Reading embedded PGS graphics…");
+    try {
+      const result = await window.DKPGS.extract(item.file,track,
+        {signal:controller.signal});
+      if (controller.signal.aborted || epoch !== state.subtitleEpoch ||
+          current() !== item) return;
+      state.mkvSubtitleAbort = null;
+      state.mkvSubtitlePending = false;
+      state.pgsEvents = result.events;
+      state.activePgsTrack = {
+        number:track.number,label:track.name || track.language || "PGS"
+      };
+      state.pgsLastFrame = null;
+      updateSubtitleStatus();
+      syncPgsOverlay();
+      status("PGS subtitles loaded locally. Video still needs a supported browser codec.",true);
+    } catch (error) {
+      if (controller.signal.aborted || epoch !== state.subtitleEpoch ||
+          current() !== item) return;
+      state.mkvSubtitleAbort = null;
+      state.mkvSubtitlePending = false;
+      updateSubtitleStatus();
+      status("Couldn't read PGS subtitles: " +
         (error && error.message ? error.message : "Unknown format"));
     }
   };
@@ -333,6 +427,7 @@
     if (state.stopped) {
       state.stopped = false;
       screen.classList.remove("empty", "stopped");
+      syncPgsOverlay();
       screen.classList.toggle("audio", current().audio);
       try { media.currentTime = 0; } catch (_) {}
     }
@@ -621,6 +716,7 @@
     state.stopped = true;
     try { media.currentTime = 0; } catch (_) {}
     screen.classList.add("empty", "stopped");
+    syncPgsOverlay();
     screen.classList.remove("audio", "ui-hidden", "cursor-hidden");
     byId("emptyTitle").textContent = "Stopped";
     byId("emptyDescription").textContent = "Press the red Play button to restart this movie.";
@@ -655,6 +751,7 @@
   });
   media.addEventListener("timeupdate", () => {
     updateTime();
+    syncPgsOverlay();
     const now = Date.now();
     if (now - state.lastResumeSave > 5000) {
       state.lastResumeSave = now;
@@ -664,6 +761,9 @@
   for (const eventName of ["play", "pause", "ended", "emptied"]) media.addEventListener(eventName, updateButtons);
   media.addEventListener("durationchange", updateTime);
   media.addEventListener("loadeddata", applySubtitlePreference);
+  for (const event of ["seeked","loadedmetadata","resize"])
+    media.addEventListener(event,syncPgsOverlay);
+  window.addEventListener("resize",syncPgsOverlay);
   if (media.textTracks && typeof media.textTracks.addEventListener === "function") {
     media.textTracks.addEventListener("addtrack", () => setTimeout(applySubtitlePreference, 0));
     media.textTracks.addEventListener("removetrack", () => setTimeout(applySubtitlePreference, 0));
@@ -853,7 +953,7 @@
   };
   const switchSubtitles = index => {
     const selected = index >= 0 ? subtitleTracks()[index] || null : null;
-    if (state.mkvSubtitlePending ||
+    if (state.mkvSubtitlePending || state.activePgsTrack ||
         (state.subtitleNode && (!selected || selected !== state.subtitleNode.track)))
       clearSubtitles();
     chooseSubtitleTrack(selected);
@@ -874,7 +974,8 @@
     addMenuHeading("Subtitles");
     const tracks = subtitleTracks();
     addMenuItem("Subtitles off", () => switchSubtitles(-1),
-      {checked: tracks.every(track => track.mode !== "showing")});
+      {checked: !state.activePgsTrack && !state.mkvSubtitlePending &&
+        tracks.every(track => track.mode !== "showing")});
     tracks.forEach((track, index) => addMenuItem(
       track.label || track.language || "Subtitle track " + (index + 1),
       () => switchSubtitles(index), {checked: track.mode === "showing"}));
@@ -885,15 +986,20 @@
         addMenuSubheading("MKV embedded subtitles");
         embedded.forEach(track => {
           const name = track.name || track.language || "Subtitle " + track.number;
-          const supported = !!(window.DKMkvSubtitles &&
+          const text = !!(window.DKMkvSubtitles &&
             window.DKMkvSubtitles.canExtract(track.codec));
-          const selected = state.activeEmbeddedTrack === track.number &&
+          const pgs = !!(window.DKPGS && window.DKPGS.canRender(track.codec));
+          const supported = text || pgs;
+          const selected = state.activePgsTrack ?
+            state.activePgsTrack.number === track.number :
+            state.activeEmbeddedTrack === track.number &&
             tracks.some(t => t.mode === "showing" && state.subtitleNode &&
               t === state.subtitleNode.track);
           addMenuItem(name + " · " + track.codec +
-            (supported ? "" : " · Codec unsupported"), () => { void loadEmbeddedTrack(track); },
+            (supported ? "" : " · Codec unsupported"),
+            () => { if (pgs) void loadPgsTrack(track); else void loadEmbeddedTrack(track); },
             {checked: supported ? selected : undefined, disabled: !supported,
-              reason: "This subtitle codec requires a decoder (for example PGS/VobSub)."});
+              reason: "This subtitle codec still requires a decoder (for example VobSub)."});
         });
       } else if (item.mkvInspection === "pending") {
         addMenuItem("Checking MKV subtitle tracks…", () => {}, {disabled: true});
@@ -935,9 +1041,11 @@
     addMenuHeading("Picture");
     addMenuItem("Fit full picture", () => {
       screen.classList.remove("fit-cover");
+      syncPgsOverlay();
     }, {checked: !screen.classList.contains("fit-cover")});
     addMenuItem("Fill frame (crop edges)", () => {
       screen.classList.add("fit-cover");
+      syncPgsOverlay();
     }, {checked: screen.classList.contains("fit-cover")});
     addMenuItem(document.fullscreenElement ? "Exit fullscreen" : "Fullscreen",
       () => { void toggleFullscreen(); });
@@ -969,6 +1077,8 @@
     addDetail("Duration", Number.isFinite(media.duration) ? time(media.duration) : "Live / unknown");
     addDetail("Speed", media.playbackRate + "×");
     addDetail("Browser subtitle tracks", subtitleTracks().length);
+    if (state.activePgsTrack)
+      addDetail("PGS bitmap subtitle track",state.activePgsTrack.label);
     if (item.mkvInspection && item.mkvInspection !== "not-mkv")
       addDetail("Detected MKV subtitle tracks", item.embeddedSubtitles.length ?
         item.embeddedSubtitles.map(t => (t.name || t.language || "Subtitle") + " (" + t.codec + ")").join(", ") :
@@ -1009,6 +1119,7 @@
     if (options[next]) { event.preventDefault(); options[next].focus(); }
   });
   document.addEventListener("fullscreenchange", updateFullscreenButton);
+  document.addEventListener("fullscreenchange", () => requestAnimationFrame(syncPgsOverlay));
   media.addEventListener("webkitbeginfullscreen", updateFullscreenButton);
   media.addEventListener("webkitendfullscreen", updateFullscreenButton);
   updateFullscreenButton();

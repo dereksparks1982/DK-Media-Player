@@ -52,8 +52,9 @@ The video right-click menu is grouped into compact, expandable **Playback**,
 **Media information** action. Subtitles is visible immediately on opening the
 menu rather than being buried beneath the speed options. Text subtitles
 embedded in local MKV files can now be extracted and switched on from this
-menu when the codec is supported; image-based subtitle tracks stay visibly
-disabled rather than pretending the browser can render them.
+menu when the codec is supported. Supported **PGS bitmap subtitles** can now
+be selected in the same menu and drawn on a transparent overlay. DVD VobSub
+and unknown subtitle codecs remain visibly unavailable.
 
 The picture-in-picture and fullscreen controls use matching SVG icons with
 the same 36-pixel hit area and vertically centered alignment.
@@ -187,11 +188,29 @@ changes. External SRT/VTT loading still works.
 The extraction runs entirely on the device, without uploading the movie or
 loading third-party code. Large MKV files may take time to scan on first
 selection. A safety cap limits oversized subtitle payloads or cue collections.
-Image subtitles such as **PGS and VobSub**, compressed/complex subtitle
-encodings and video/audio codecs unsupported by the browser **remain
-unsupported**. Embedded text extraction does not make an otherwise unplayable
-MKV video playable. No FFmpeg/WebAssembly decoder has been added. Full format
-compatibility and persistent folder access remain separate future work.
+### Bitmap MKV subtitle support (PGS)
+
+`docs/pgs-subtitles.js` now provides a **local PGS bitmap decoder** for
+Matroska `S_HDMV/PGS` subtitle tracks. Its source handles presentation
+compositions, per-track timestamps, palette updates, fragmented image objects,
+run-length encoded indexed pixels, subtitle clearing and seek-time frame
+selection. Graphics are drawn over the movie on a transparent canvas aligned
+to the visible video picture (including letterboxing, resize, normal view and
+fullscreen). Select an embedded PGS subtitle under the video right-click
+**Subtitles** menu. **Subtitles off** or selecting another track removes the
+PGS image; switching files stops any ongoing scan. All movie and subtitle
+data stay on the user's device. Both the text and PGS readers use bounded
+file slices, and image size / collection caps prevent excessive allocations.
+
+**Limitations:** This is initial source-only PGS support. Some unusual,
+complex, unsupported or malformed PGS encodings may not render correctly.
+**DVD VobSub, other bitmap subtitle codecs, and video/audio codecs unsupported
+by the host browser remain unsupported.** Decoding subtitle graphics does
+not make an otherwise unplayable MKV playable. PGS and Matroska source fixtures
+are included but have not been run at the owner's request. No FFmpeg/WASM
+video decoder or third-party runtime package was introduced. Full format
+compatibility, better audio-track switching and persistent folder access
+remain separate future work.
 
 ## DK Browser integration
 
