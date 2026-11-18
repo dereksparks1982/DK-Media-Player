@@ -512,8 +512,9 @@
     status("Added " + accepted.length + (accepted.length === 1 ? " file" : " files") + " to the queue.", true);
   };
 
-  // The Chromium picker returns persistent file handles. Firefox and other
-  // browsers retain the standard file-input fallback, which is session-only.
+  // Chromium's File System Access picker provides permissioned file handles.
+  // If the picker API is unavailable in the current Chromium context, use
+  // a temporary file input without persistent-file permissions.
   const openLocalFiles = async (autoplay = true) => {
     // DOM click events are passed to this handler by the ordinary Open buttons.
     if (typeof autoplay !== "boolean") autoplay = true;
@@ -536,7 +537,7 @@
       else status("No readable video or audio file was selected.");
     } catch (error) {
       if (error && error.name === "AbortError") return;
-      status("The file picker could not open. Try another browser or a file drop.");
+      status("The Chromium file picker could not open. Try dragging a file onto the player.");
     }
   };
 
@@ -556,8 +557,8 @@
       return;
     }
     if (saved.kind !== "file" && saved.kind !== "temporary-file") return;
-    // Firefox and other file-input browsers cannot silently reopen a file.
-    // Keep a useful one-click path to select it again and recover its position.
+    // Permission can expire, and temporary inputs cannot reopen a file
+    // silently. Offer the user a Chromium reselect/permission workflow.
     showRestoreChoice(saved, "Choose the same file again to resume where you stopped.");
     if (saved.kind === "temporary-file") return;
     try {
@@ -848,8 +849,7 @@
     } catch (_) { status("Picture in picture isn't available for this video or browser."); }
   });
   const updateFullscreenButton = () => {
-    const fullscreen = document.fullscreenElement === screen ||
-      Boolean(media.webkitDisplayingFullscreen);
+    const fullscreen = document.fullscreenElement === screen;
     const button = byId("fullscreen");
     button.setAttribute("aria-label", fullscreen ? "Exit fullscreen" : "Fullscreen");
     button.title = fullscreen ? "Exit fullscreen" : "Fullscreen";
@@ -860,14 +860,8 @@
     try {
       if (document.fullscreenElement) {
         await document.exitFullscreen();
-      } else if (media.webkitDisplayingFullscreen &&
-                 typeof media.webkitExitFullscreen === "function") {
-        media.webkitExitFullscreen();
       } else if (typeof screen.requestFullscreen === "function") {
         await screen.requestFullscreen();
-      } else if (typeof media.webkitEnterFullscreen === "function") {
-        // iOS may use native video fullscreen instead of fullscreen elements.
-        media.webkitEnterFullscreen();
       } else {
         status("Fullscreen isn't available in this browser.");
       }
@@ -1178,8 +1172,6 @@
   });
   document.addEventListener("fullscreenchange", updateFullscreenButton);
   document.addEventListener("fullscreenchange", () => requestAnimationFrame(syncPgsOverlay));
-  media.addEventListener("webkitbeginfullscreen", updateFullscreenButton);
-  media.addEventListener("webkitendfullscreen", updateFullscreenButton);
   updateFullscreenButton();
   byId("addSubtitles").addEventListener("click", () => byId("subtitlePicker").click());
   byId("subtitlePicker").addEventListener("change", async event => {

@@ -70,7 +70,7 @@
     "Clear saved links":"Очистить ссылки", "No saved media links yet.":"Пока нет сохранённых ссылок.",
     "Using the web player":"Как пользоваться веб-плеером",
     "Play files on this device":"Воспроизведение файлов на устройстве",
-    "Choose one or several media files. They play in your browser and are not uploaded. In browsers supporting persistent file handles, the last opened file can reopen after permission is granted. In Firefox and other browsers using the ordinary file picker, Restore last file asks you to choose the same file again and restores its saved position.":"Выберите один или несколько медиафайлов. Они воспроизводятся прямо в браузере и никуда не загружаются. При разрешённом доступе браузер может повторно открыть последний файл. В Файрфоксе и других браузерах с обычным окном выбора файлов функция восстановления предлагает снова выбрать тот же файл и продолжить просмотр.",
+    "Choose one or several local media files in Chromium. They are never uploaded. After you approve file access, Kinehall can remember the selected file handle and restore playback. If permission expires, use Restore last file to grant access again or reselect the file.":"Выберите один или несколько местных медиафайлов в Хромиуме. Они никуда не загружаются. После разрешения доступа проигрыватель может запомнить файл и восстановить воспроизведение. Если разрешение истекло, воспользуйтесь восстановлением последнего файла и снова разрешите доступ или выберите файл.",
     "Play remote video":"Воспроизведение удалённого видео",
     "Paste a direct, publicly reachable media URL. The server must permit streaming, and the file must use a codec your browser understands. GitHub Pages does not host or expose videos on your Linux computer.":"Вставьте прямую общедоступную ссылку на медиафайл. Сервер должен разрешать потоковую передачу, а браузер должен поддерживать формат. Страницы Гитхаба не публикуют видео с вашего компьютера.",
     "Library and resume":"Медиатека и продолжение просмотра",
@@ -79,8 +79,8 @@
     "Subtitles are off by default. Select a browser-supported subtitle track in the right-click menu or load SRT/VTT manually. Subtitle language preferences are remembered. For local MKV files, the player detects embedded subtitle track metadata, but the browser must still be able to decode the tracks. Full MKV subtitle playback is planned for DK Browser.":"По умолчанию субтитры выключены. Выберите поддерживаемую браузером дорожку в контекстном меню либо вручную загрузите файл субтитров. Языковые настройки запоминаются. Для местных файлов МКВ проигрыватель определяет встроенные дорожки, но их воспроизведение зависит от возможностей браузера. Полная поддержка встроенных субтитров планируется в ДК Браузере.",
     "On-screen controls":"Управление воспроизведением",
     "Stop displays the golden emblem again and Play restarts the same movie from the beginning. Move the pointer over the movie to reveal the seek bar and playback controls, YouTube-style. Hover or focus the timeline for a timestamp preview and a video frame when supported for a local file. They fade while playing and stay visible when paused. Double-click the picture for fullscreen; Esc exits. Right-click the video to open playback speed, subtitles, available audio tracks and chapters, aspect ratio, fullscreen, and media information. Unavailable browser track options are labeled rather than simulated. Space/K: play/pause; arrows: seek or volume; F: fullscreen; M: mute.":"Кнопка «Стоп» возвращает золотую эмблему, а «Воспроизвести» запускает тот же фильм с начала. Наведите указатель на видео, чтобы показать полосу перемотки и кнопки управления. При наведении на шкалу времени может появиться изображение кадра. Во время просмотра элементы управления скрываются, а на паузе остаются видимыми. Двойной щелчок переключает полный экран, а клавиша выхода закрывает его. Правый щелчок открывает скорость, субтитры, аудиодорожки, главы, формат изображения и сведения о файле. Недоступные возможности отмечены как недоступные. Пробел включает и приостанавливает воспроизведение, стрелки управляют перемоткой и громкостью.",
-    "iPhone and iPad":"Айфон и Айпад",
-    "Use Safari or another browser to select a local file or open a direct media URL. You can add this site to your Home Screen. iOS supports HLS streams natively; other codecs vary by device.":"В Сафари или другом браузере можно выбрать местный файл либо открыть прямую ссылку. Сайт можно добавить на главный экран. Поддержка потокового видео и других форматов зависит от устройства.",
+    "Chromium only":"Только Хромиум",
+    "DK Kinehall is built exclusively for the Chromium engine. Its local-file permissions and playback capabilities follow Chromium; unrelated browser engines are not development targets.":"ДК Кинехолл предназначен исключительно для движка Хромиум. Разрешения на доступ к местным файлам и воспроизведение зависят от Хромиума. Другие браузерные движки не поддерживаются.",
     "DK Kinehall is free software. This web player runs independently in your browser, using video formats supported by that browser.":"ДК Кинехолл распространяется бесплатно. Веб-плеер работает непосредственно в браузере и поддерживает доступные ему видеоформаты.",
     "DK Kinehall · DK Softworks":"ДК Кинехолл · ДК Софтворкс",
     "Private local playback · No media uploads":"Локальное воспроизведение · Без загрузки файлов",
@@ -135,7 +135,7 @@
     "Tap Play to start playback on this device.":"Нажмите «Воспроизвести» для запуска на этом устройстве.",
     "Couldn't start this media. Check its format or source.":"Не удалось запустить файл. Проверьте формат или источник.",
     "No readable video or audio file was selected.":"Не выбран доступный для чтения видео- или аудиофайл.",
-    "The file picker could not open. Try another browser or a file drop.":"Не удалось открыть выбор файлов. Попробуйте другой браузер или перетащите файл.",
+    "The Chromium file picker could not open. Try dragging a file onto the player.":"Не удалось открыть выбор файлов Хромиума. Попробуйте перетащить файл в проигрыватель.",
     "Last stream restored. Press Play to resume.":"Последний поток восстановлен. Нажмите «Воспроизвести», чтобы продолжить.",
     "Last local file restored. Press Play to resume.":"Последний локальный файл восстановлен. Нажмите «Воспроизвести», чтобы продолжить.",
     "File restored. Press Play to resume.":"Файл восстановлен. Нажмите «Воспроизвести», чтобы продолжить.",
@@ -181,10 +181,7 @@
       .replace(/TMDb/gi, "ТМДБ")
       .replace(/DK Softworks/gi, "ДК Софтворкс")
       .replace(/GitHub/gi, "Гитхаб")
-      .replace(/Firefox/gi, "Файрфокс")
-      .replace(/iPhone/gi, "Айфон")
-      .replace(/iPad/gi, "Айпад")
-      .replace(/Safari/gi, "Сафари")
+      .replace(/Chromium/gi, "Хромиум")
       .replace(/WebM/gi, "ВебМ")
       .replace(/MKV/gi, "МКВ")
       .replace(/(\d+) channels\b/gi, "$1 каналов")
@@ -298,8 +295,8 @@
     if (manifest) manifest.href =
       language === "ru" ? "./manifest-ru.webmanifest?v=20261117-3" :
       "./manifest.webmanifest?v=20261117-3";
-    const appleTitle = document.querySelector('meta[name="apple-mobile-web-app-title"]');
-    if (appleTitle) appleTitle.content = language === "ru" ? "ДК Кинехолл" : "DK Kinehall";
+    const appTitle = document.querySelector('meta[name="application-name"]');
+    if (appTitle) appTitle.content = language === "ru" ? "ДК Кинехолл" : "DK Kinehall";
     const selector = document.getElementById("languageSelect");
     if (selector) {
       selector.value = language;

@@ -30,9 +30,9 @@ media names, links and external API identifiers are not modified.
 
 **[Open DK Kinehall in your browser](https://dereksparks1982.github.io/dkkinehall/)**
 
-The web player is published from `docs/` through GitHub Pages and works on desktop browsers and phones. Open video/audio files stored on your device, manage a session playlist, adjust playback and load SRT/VTT subtitles. In DK Browser and browsers supporting the File System Access API, the last selected local file can be remembered through IndexedDB and reloaded at its saved position without picking it again when browser permission remains granted. If permission expires, use **Restore last file**. Firefox and other browsers using session-only file inputs can also click **Restore last file** and select the same movie again to recover the previously saved position. The media player supports normal **0–100% volume** with no Web Audio gain processing, and **mouse-wheel/Up-Down volume changes** (5% steps), plus **double-click the video to enter/exit fullscreen**. Fullscreen and normal playback both use the full video frame without the obsolete 64vh height cap. The picture is fitted without cropping or stretching, with black bars only when the aspect ratios differ. Playback continues uninterrupted. Single-click still plays/pauses (after a short delay to distinguish a double-click), the existing fullscreen button and **F** shortcut work, and **Esc** exits fullscreen.
+DK Kinehall targets **Chromium exclusively**, including the Chromium engine used by DK NetNav. The GitHub Pages web player is published from `docs/` and is developed against Chromium APIs, not against other browser engines. Open video/audio files stored on your device, manage the playlist, and load subtitles. Chromium's File System Access API can retain user-approved file handles in IndexedDB and restore the last media file and playback position. If access expires, **Restore last file** requests permission or lets you reselect the file. A standard file-input path remains as a Chromium fallback when the picker API is unavailable; it does not provide persistent file access. The player offers **0–100% volume**, mouse-wheel/Up-Down volume changes, double-click fullscreen, picture fitting without distortion, and seek/playback controls. It uses native Chromium decoding when available; codecs requiring additional decoding remain separate roadmap work.
 
-Web player development is currently independent of both the earlier desktop edition and DK Browser development. GitHub Pages does not stream movies stored on your home computer by itself: playback depends on the browser's supported codecs. Local files remain on your device. Firefox and browsers without the required file APIs continue using the standard session-only file input. The former above-100% boost has been removed following reports of audio skipping; saved boosted volumes are clamped to 100% on load. DK Browser development remains separate. No codec or DRM support is added by the player webpage itself.
+DK Kinehall is a Chromium-targeted player and is developed separately from the historical desktop edition and DK NetNav browser. GitHub Pages does not stream movies stored on your home computer by itself. Selected local files stay on your device, and playback is limited to formats supported by Chromium or by codecs explicitly implemented in Kinehall. Previously saved volume values above 100% are clamped on load. The web player does not bypass DRM. See [Chromium target notes](docs/CHROMIUM_TARGET.md) for platform boundaries.
 
 ### Web player interface
 
@@ -59,8 +59,8 @@ exposes audio-track controls, the **Audio tracks** menu also switches between
 those tracks and remembers the chosen track for that local file. For MKV files,
 it shows codec, language, channels, and sample rate from the file header,
 but metadata-only tracks are disabled so they cannot be mistaken for switchable
-audio. Firefox and browsers without a working audio-track API still require
-a real MKV demux/decoder fallback to switch embedded tracks.
+audio. Full MKV audio-track switching remains future work where Chromium does
+not provide a usable native track-selection API.
 
 The picture-in-picture and fullscreen controls use matching SVG icons with
 the same 36-pixel hit area and vertically centered alignment.
@@ -215,7 +215,7 @@ by the host browser remain unsupported.** Decoding subtitle graphics does
 not make an otherwise unplayable MKV playable. PGS and Matroska source fixtures
 are included but have not been run at the owner's request. No FFmpeg/WASM
 video decoder or third-party runtime package was introduced. Full format
-compatibility, cross-browser audio-track switching and persistent folder
+compatibility, Chromium MKV audio-track switching and persistent folder
 access remain separate future work.
 
 ### MKV audio tracks
@@ -225,8 +225,8 @@ alongside subtitle descriptions. `docs/audio-tracks.js` provides track
 selection **only when the browser exposes working native audio-track controls**.
 Right-click the video and open **Audio tracks** to select a browser track.
 Selections are remembered per local file without uploading the file or
-changing codec settings. On browsers without that API, MKV audio descriptions
-are clearly marked **information only** and are not clickable. This does
+changing codec settings. When Chromium does not expose that API, MKV audio
+descriptions are marked **information only** and are not clickable. This does
 **not** demux MKV audio or add AAC/AC3/DTS/other decoders.
 
 The media player now retains the selected local `File` object for the current
@@ -235,9 +235,9 @@ its bytes when you select an embedded subtitle track. All extraction stays
 local to your browser. Source-only fixtures have been added for MKV audio
 descriptors and browser audio selection; they have not been executed.
 
-## DK Browser integration
+## DK NetNav and Chromium
 
-[DK Browser](https://github.com/dereksparks1982/dkbrowser) is the separate full Chromium source fork. Its startup/home defaults open this web player. This page implements local file-handle persistence and volume controls without a browser plugin; local file handles stay within the browser's own IndexedDB origin storage. You can delete stored site data to remove those handles. Browser permission prompts are respected.
+[DK NetNav](https://github.com/dereksparks1982/dknetnav) is the separate Chromium-based browser project. DK Kinehall targets that engine and other Chromium builds, without maintaining compatibility branches for unrelated engines. Its local file handles live within the page origin's IndexedDB storage. Chromium's file permissions are always respected. Kinehall and DK NetNav remain separate repositories; this branding and platform decision does not itself claim any new integration.
 
 ## Install on Ubuntu / Debian
 
