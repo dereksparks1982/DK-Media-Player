@@ -9,7 +9,8 @@
     resume: "dkmedia.web.resume.v1",
     volume: "dkmedia.web.volume.v2",
     lastMedia: "dkmedia.web.last-media.v1",
-    subtitlePreference: "dkmedia.web.subtitle-preference.v1"
+    subtitlePreference: "dkmedia.web.subtitle-preference.v1",
+    audioPreferences: "dkmedia.web.audio-preferences.v1"
   };
   const read = (key, fallback) => {
     try {
@@ -30,6 +31,10 @@
     activeEmbeddedTrack: null,
     activePgsTrack: null, pgsEvents: null, pgsLastFrame: null,
     restoreHandle: null, restorePickerPending: false, stopped: false,
+    audioPreferences: (() => {
+      const saved = read(store.audioPreferences, {});
+      return saved && typeof saved === "object" && !Array.isArray(saved) ? saved : {};
+    })(),
     subtitlePreference: (() => {
       const pref = read(store.subtitlePreference, {mode: "off"});
       return pref && pref.mode === "track" ? {
@@ -483,16 +488,17 @@
     const first = state.queue.length;
     for (const {file, handle} of accepted) {
       const item = {kind: "file", name: file.name, audio: fileIsAudio(file),
-        src: URL.createObjectURL(file), handle,
+        file, src: URL.createObjectURL(file), handle,
         size: file.size, mime: file.type || "",
         key: "file:" + file.name + ":" + file.size + ":" + file.lastModified,
-        embeddedSubtitles: [], mkvInspection: "not-mkv"};
+        embeddedSubtitles: [], embeddedAudio: [], mkvInspection: "not-mkv"};
       state.queue.push(item);
       if (/\.mkv$/i.test(file.name) && window.DKMatroska) {
         item.mkvInspection = "pending";
         void window.DKMatroska.inspectFile(file).then(result => {
           if (!state.queue.includes(item)) return;
-          item.embeddedSubtitles = result.tracks;
+          item.embeddedSubtitles = result.tracks || [];
+          item.embeddedAudio = result.audioTracks || [];
           item.mkvInspection = result.truncated ? "partial" : "complete";
           if (current() === item) updateSubtitleStatus();
         }).catch(() => {
@@ -742,6 +748,7 @@
     const item = current();
     if (!item) return;
     applySubtitlePreference();
+    restoreAudioPreference();
     if (state.stopped) { updateTime(); return; }
     const position = Number(state.resume[item.key] || 0);
     if (position > 2 && Number.isFinite(media.duration) && position < media.duration - 4) {
@@ -761,6 +768,11 @@
   for (const eventName of ["play", "pause", "ended", "emptied"]) media.addEventListener(eventName, updateButtons);
   media.addEventListener("durationchange", updateTime);
   media.addEventListener("loadeddata", applySubtitlePreference);
+  media.addEventListener("loadeddata",restoreAudioPreference);
+  if (media.audioTracks && typeof media.audioTracks.addEventListener === "function") {
+    // Audio tracks can become available after the metadata event.
+    media.audioTracks.addEventListener("addtrack", () => setTimeout(restoreAudioPreference,0));
+  }
   for (const event of ["seeked","loadedmetadata","resize"])
     media.addEventListener(event,syncPgsOverlay);
   window.addEventListener("resize",syncPgsOverlay);
@@ -947,9 +959,39 @@
     try { return Array.from(media.textTracks || []); }
     catch (_) { return []; }
   };
-  const audioTracks = () => {
-    try { return Array.from(media.audioTracks || []); }
-    catch (_) { return []; }
+  const audioApi = window.DKAudioTracks;
+  const audioTracks = () => audioApi ? audioApi.nativeTracks(media) : [];
+  const rememberAudioPreference = (item, track, index) => {
+    if (!item || !audioApi) return;
+    state.audioPreferences[item.key] = audioApi.preferenceFor(track,index);
+    const keys = Object.keys(state.audioPreferences);
+    if (keys.length > 120)
+      keys.slice(0,keys.length-120).forEach(key => delete state.audioPreferences[key]);
+    write(store.audioPreferences,state.audioPreferences);
+  };
+  const selectAudioTrack = (index, remember = true) => {
+    if (!audioApi) return false;
+    const item = current();
+    const result = audioApi.selectNative(media,index);
+    if (!result.ok) {
+      if (remember) status(result.reason);
+      return false;
+    }
+    if (remember) {
+      const tracks = audioTracks();
+      rememberAudioPreference(item,tracks[index],index);
+      status("Audio track selected: " + result.label,true);
+    }
+    return true;
+  };
+  const restoreAudioPreference = () => {
+    const item = current(), tracks = audioTracks();
+    if (!item || !audioApi || !tracks.length) return;
+    const saved = state.audioPreferences[item.key];
+    if (!saved) return;
+    const target = audioApi.preferredIndex(tracks,saved);
+    if (target >= 0 && !tracks[target].enabled)
+      selectAudioTrack(target,false);
   };
   const switchSubtitles = index => {
     const selected = index >= 0 ? subtitleTracks()[index] || null : null;
@@ -1010,13 +1052,24 @@
     addMenuHeading("Audio tracks");
     const audios = audioTracks();
     if (audios.length) {
-      audios.forEach(track => addMenuItem(
-        track.label || track.language || "Audio track " + (audios.indexOf(track) + 1),
-        () => { audios.forEach(t => { t.enabled = t === track; }); },
-        {checked: track.enabled}));
+      addMenuSubheading("Browser audio tracks");
+      audios.forEach((track,index) => addMenuItem(
+        audioApi.labelNative(track,index),
+        () => selectAudioTrack(index), {checked: Boolean(track.enabled)}));
     } else {
-      addMenuItem("Track selection not exposed by this browser", () => {},
-        {disabled: true, reason: "Requires a browser audio track API or future DK Browser support"});
+      addMenuItem("Browser audio-track switching unavailable", () => {},
+        {disabled: true,reason: "This browser does not expose switchable audio streams."});
+    }
+    if (item && item.mkvInspection !== "not-mkv") {
+      if (item.embeddedAudio && item.embeddedAudio.length) {
+        addMenuSubheading("Detected MKV audio (information only)");
+        item.embeddedAudio.forEach(track => addMenuItem(
+          audioApi ? audioApi.labelEmbedded(track) : (track.name || track.language || track.codec),
+          () => {}, {disabled:true,
+            reason:"MKV metadata alone cannot switch audio; use browser-exposed audio tracks above."}));
+      } else if (item.mkvInspection === "pending") {
+        addMenuItem("Checking MKV audio tracks…", () => {}, {disabled:true});
+      }
     }
 
     addMenuHeading("Speed");
@@ -1077,6 +1130,11 @@
     addDetail("Duration", Number.isFinite(media.duration) ? time(media.duration) : "Live / unknown");
     addDetail("Speed", media.playbackRate + "×");
     addDetail("Browser subtitle tracks", subtitleTracks().length);
+    addDetail("Browser audio tracks", audioTracks().length);
+    if (item.embeddedAudio && item.embeddedAudio.length)
+      addDetail("Detected MKV audio tracks",item.embeddedAudio.map(
+        t => audioApi ? audioApi.labelEmbedded(t) :
+          (t.name || t.language || t.codec)).join("; "));
     if (state.activePgsTrack)
       addDetail("PGS bitmap subtitle track",state.activePgsTrack.label);
     if (item.mkvInspection && item.mkvInspection !== "not-mkv")

@@ -10,6 +10,8 @@
 - Local-file resume through permissions-based file handles when possible, or user-driven file re-selection.
 - External SRT/VTT loading, MKV subtitle track metadata inspection and local MKV text subtitle extraction (UTF-8/SubRip, ASCII, ASS/SSA) into browser WebVTT tracks. Users can select/off/switch tracks in the right-click menu. ASS styling is simplified to text.
 - Initial source support for local MKV PGS bitmap subtitles (S_HDMV/PGS): Matroska packet reading, palette and RLE decoding, multiple composition objects, timestamps, clear frames, canvas overlay, responsive geometry and off/switch controls. Source-only fixtures added; not validated in a browser. VobSub and unhandled encodings remain unavailable.
+- MKV audio descriptor scanning (track number, language, codec, name, channel count, sample rate and bit depth); distinguish informational MKV tracks from browser-switchable tracks in the video context menu. Select and remember real native audio tracks per local file when supported by `HTMLMediaElement.audioTracks`. No claim of Firefox/MKV demuxer audio switching or extra codecs.
+- Corrected playlist media-file retention so on-demand MKV subtitle extraction receives the actual local `File` object rather than an undefined value.
 - Hover seek frames, muted video previews, TVmaze episode artwork and image fallback/retries, no user token required.
 - Cyrillic-only Russian interface.
 - Outward-facing Kinehall name in both languages, browser tabs, GitHub Pages, home-screen manifests and desktop launchers; original icon and legacy internal file/state identifiers are unchanged.
@@ -17,10 +19,11 @@
 ## Next major feature: format compatibility
 - Research and implement an optional client-side decoder/demuxer fallback for media that the host browser cannot play, potentially using a licensed WebAssembly-based codec engine.
 - Preserve native browser playback for supported files, and make decoding limitations and resource costs clear.
-- Next: improve real multi-audio-track support in browsers without the `audioTracks` API, and investigate VobSub/remaining bitmap subtitle formats. Avoid presenting metadata-only track listing as playback capability.
+- Next: implement a supported local demux/decoder path for selecting MKV audio tracks on browsers (especially Firefox) without `audioTracks`. Account for synchronization, seeking, multi-codec support, licensing, and performance. Native switching and metadata-only listings are not a replacement.
+- Investigate VobSub/remaining bitmap subtitle formats. Avoid presenting metadata-only track listing as playback capability.
 - Then add more codec/container compatibility, retaining browser-native playback whenever supported.
 - Complete quality and accessibility improvements while preserving the approved layout.
-- Matroska and PGS reader source-only fixtures are in `docs/tests/mkv-subtitles.cjs` and `docs/tests/pgs-subtitles.cjs`. They have **not** been run. No compilation or test runs until the project owner requests them.
+- Matroska, PGS and audio-track source-only fixtures are in `docs/tests/mkv-subtitles.cjs`, `docs/tests/mkv-tracks.cjs`, `docs/tests/pgs-subtitles.cjs` and `docs/tests/audio-tracks.cjs`. They have **not** been run. No compilation or test runs until the project owner requests them.
 
 ## Rights and history
 - Retain TVmaze attribution and notices for all vendored third-party code.

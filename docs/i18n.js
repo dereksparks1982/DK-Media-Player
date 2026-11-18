@@ -86,6 +86,15 @@
     "Private local playback · No media uploads":"Локальное воспроизведение · Без загрузки файлов",
     "Choose media files":"Выберите медиафайлы", "Choose subtitle file":"Выберите файл субтитров",
     "Playback":"Воспроизведение", "Speed":"Скорость", "Audio tracks":"Аудиодорожки",
+    "Browser audio tracks":"Аудиодорожки браузера",
+    "Detected MKV audio (information only)":"Обнаруженные аудиодорожки МКВ (только сведения)",
+    "Checking MKV audio tracks…":"Поиск аудиодорожек МКВ…",
+    "Browser audio-track switching unavailable":"Переключение аудиодорожек недоступно",
+    "This browser does not expose switchable audio streams.":"Этот браузер не предоставляет переключаемые аудиодорожки.",
+    "MKV metadata alone cannot switch audio; use browser-exposed audio tracks above.":"Одних сведений о дорожках МКВ недостаточно для переключения звука. Выберите доступную аудиодорожку браузера выше.",
+    "Browser audio-track selection is unavailable.":"Выбор аудиодорожек браузером недоступен.",
+    "The browser did not activate that audio track.":"Браузер не включил эту аудиодорожку.",
+    "The browser rejected audio-track switching.":"Браузер отклонил переключение аудиодорожки.",
     "Picture":"Изображение", "Chapters":"Главы",
     "▶  Play":"▶  Воспроизвести", "⏸  Pause":"⏸  Пауза",
     "⏹  Stop":"⏹  Стоп", "⏮  Previous":"⏮  Предыдущий",
@@ -113,6 +122,7 @@
     "Media information":"Сведения о файле",
     "Title":"Название", "Source":"Источник", "Resolution":"Разрешение",
     "Duration":"Продолжительность", "Browser subtitle tracks":"Дорожки субтитров браузера",
+    "Detected MKV audio tracks":"Обнаруженные аудиодорожки МКВ",
     "Detected MKV subtitle tracks":"Обнаруженные субтитры МКВ",
     "Live / unknown":"Прямой эфир / неизвестно",
     "Local file":"Локальный файл", "Remote URL":"Удалённая ссылка",
@@ -177,6 +187,11 @@
       .replace(/Safari/gi, "Сафари")
       .replace(/WebM/gi, "ВебМ")
       .replace(/MKV/gi, "МКВ")
+      .replace(/(\d+) channels\b/gi, "$1 каналов")
+      .replace(/(\d+) channel\b/gi, "$1 канал")
+      .replace(/ · default\b/gi, " · по умолчанию")
+      .replace(/\bHz\b/gi, "Гц")
+      .replace(/\bbit\b/gi, "бит")
       .replace(/PGS/gi, "ПГС")
       .replace(/SRT/gi, "СРТ")
       .replace(/VTT/gi, "ВТТ")
@@ -219,6 +234,8 @@
       translated = "Дорожка субтитров " + m[1];
     if (translated === null && (m = /^Audio track (\d+)$/.exec(plain)))
       translated = "Аудиодорожка " + m[1];
+    if (translated === null && (m = /^Audio track selected: (.+)$/.exec(plain)))
+      translated = "Выбрана аудиодорожка: " + m[1];
     if (translated === null && (m = /^Couldn't read PGS subtitles: (.+)$/.exec(plain)))
       translated = "Не удалось прочитать субтитры ПГС: " + m[1];
     if (translated === null && (m = /^Couldn't read embedded MKV subtitles: (.+)$/.exec(plain)))

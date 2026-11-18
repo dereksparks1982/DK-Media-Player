@@ -54,7 +54,13 @@ menu rather than being buried beneath the speed options. Text subtitles
 embedded in local MKV files can now be extracted and switched on from this
 menu when the codec is supported. Supported **PGS bitmap subtitles** can now
 be selected in the same menu and drawn on a transparent overlay. DVD VobSub
-and unknown subtitle codecs remain visibly unavailable.
+and unknown subtitle codecs remain visibly unavailable. When the browser
+exposes audio-track controls, the **Audio tracks** menu also switches between
+those tracks and remembers the chosen track for that local file. For MKV files,
+it shows codec, language, channels, and sample rate from the file header,
+but metadata-only tracks are disabled so they cannot be mistaken for switchable
+audio. Firefox and browsers without a working audio-track API still require
+a real MKV demux/decoder fallback to switch embedded tracks.
 
 The picture-in-picture and fullscreen controls use matching SVG icons with
 the same 36-pixel hit area and vertically centered alignment.
@@ -209,8 +215,25 @@ by the host browser remain unsupported.** Decoding subtitle graphics does
 not make an otherwise unplayable MKV playable. PGS and Matroska source fixtures
 are included but have not been run at the owner's request. No FFmpeg/WASM
 video decoder or third-party runtime package was introduced. Full format
-compatibility, better audio-track switching and persistent folder access
-remain separate future work.
+compatibility, cross-browser audio-track switching and persistent folder
+access remain separate future work.
+
+### MKV audio tracks
+
+The local `docs/mkv-tracks.js` inspector now reads MKV audio descriptions
+alongside subtitle descriptions. `docs/audio-tracks.js` provides track
+selection **only when the browser exposes working native audio-track controls**.
+Right-click the video and open **Audio tracks** to select a browser track.
+Selections are remembered per local file without uploading the file or
+changing codec settings. On browsers without that API, MKV audio descriptions
+are clearly marked **information only** and are not clickable. This does
+**not** demux MKV audio or add AAC/AC3/DTS/other decoders.
+
+The media player now retains the selected local `File` object for the current
+playlist item so the existing MKV text and PGS subtitle readers can access
+its bytes when you select an embedded subtitle track. All extraction stays
+local to your browser. Source-only fixtures have been added for MKV audio
+descriptors and browser audio selection; they have not been executed.
 
 ## DK Browser integration
 
