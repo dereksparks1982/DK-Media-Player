@@ -21,10 +21,14 @@
 - Previous and Next icons are enlarged, and all six transport buttons have matching square hit areas. Play/Pause retains the red background but not its former oversized dimensions.
 - CSS source updated; no Chromium browser run or automated tests performed for this visual adjustment. Do not mark runtime validation complete.
 
+## November 17, 2026: WebCodecs MKV audio fallback (source-only)
+- Add on-device Matroska AAC/Opus audio demuxing through File slices and Chromium WebCodecs + WebAudio. The menu offers real audio decoding attempts for supported codecs and a return to native audio. Add initial clock-aligned playback, pause, seek, rate-change, volume and cleanup integration.
+- **Not compiled or run:** complete audio synchronization, WebCodecs profiles, laced packets, pause/seek behavior and long-file performance require Surface Pro Chromium testing. Other codecs remain out of scope for this increment.
+
 ## Next major feature: format compatibility
 - Research and implement an optional client-side decoder/demuxer fallback for media that the host browser cannot play, potentially using a licensed WebAssembly-based codec engine.
 - Preserve Chromium's native playback for supported files, and make decoding limitations and resource costs clear.
-- Next: implement properly synchronized, tested MKV audio-track switching within the Chromium-targeted player, even when native `audioTracks` is unavailable. Evaluate Chromium-compatible demuxing and supported decoders; account for seeking, playback speed, codec support, licensing and performance. Metadata-only listings do not count as switching.
+- Next: validate and harden the new WebCodecs AAC/Opus fallback on the Surface Pro, including synchronization, seeking, lacing, codec profiles and performance; then extend decoder coverage. Metadata-only listings do not count as switching.
 - Investigate VobSub/remaining bitmap subtitle formats. Avoid presenting metadata-only track listing as playback capability.
 - Then add more codec/container compatibility, retaining Chromium-native playback whenever supported.
 - Complete quality and accessibility improvements while preserving the approved layout. Keep the approved icon, visuals and existing file/queue workflows; avoid compatibility-only development for other browser engines.

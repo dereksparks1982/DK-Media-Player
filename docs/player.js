@@ -2,6 +2,8 @@
   "use strict";
   const byId = id => document.getElementById(id);
   const media = byId("media");
+  let mkvAudio = null;
+  let userMuted = false;
   const screen = byId("screen");
   const pgsCanvas = byId("pgsOverlay");
   const queueView = byId("queue");
@@ -336,7 +338,7 @@
     byId("next").disabled = state.current < 0 || state.current >= state.queue.length - 1;
     byId("clearQueue").disabled = state.current >= 0 ? state.current >= state.queue.length - 1 : state.queue.length === 0;
     byId("addSubtitles").disabled = !item;
-    const muted = media.muted || volumePercent === 0;
+    const muted = userMuted || volumePercent === 0;
     byId("mute").classList.toggle("is-muted", muted);
     byId("mute").setAttribute("aria-label", muted ? "Unmute" : "Mute");
     byId("mute").title = muted ? "Unmute" : "Mute";
@@ -409,6 +411,7 @@
     state.current = -1;
     state.stopped = false;
     clearSubtitles();
+    if (mkvAudio) mkvAudio.stop();
     media.pause();
     media.removeAttribute("src");
     media.load();
@@ -435,6 +438,7 @@
       syncPgsOverlay();
       screen.classList.toggle("audio", current().audio);
       try { media.currentTime = 0; } catch (_) {}
+      restoreAudioPreference();
     }
     const result = media.play();
     if (result && typeof result.catch === "function") result.catch(err => {
@@ -448,6 +452,7 @@
     if (!state.stopped) rememberPosition();
     state.stopped = false;
     clearSubtitles();
+    if (mkvAudio) mkvAudio.stop();
     media.pause();
     state.current = index;
     const item = current();
@@ -500,7 +505,7 @@
           item.embeddedSubtitles = result.tracks || [];
           item.embeddedAudio = result.audioTracks || [];
           item.mkvInspection = result.truncated ? "partial" : "complete";
-          if (current() === item) updateSubtitleStatus();
+          if (current() === item) { updateSubtitleStatus(); restoreAudioPreference(); }
         }).catch(() => {
           item.mkvInspection = "unavailable";
           if (current() === item) updateSubtitleStatus();
@@ -718,6 +723,7 @@
     if (!item) return;
     cancelVideoClick();
     media.pause();
+    if (mkvAudio) mkvAudio.stop();
     delete state.resume[item.key];
     write(store.resume, state.resume);
     state.stopped = true;
@@ -770,6 +776,8 @@
   media.addEventListener("durationchange", updateTime);
   media.addEventListener("loadeddata", applySubtitlePreference);
   media.addEventListener("loadeddata",restoreAudioPreference);
+  media.addEventListener("seeking", () => { if (mkvAudio) mkvAudio.restart(); });
+  media.addEventListener("ratechange", () => { if (mkvAudio) mkvAudio.restart(); });
   if (media.audioTracks && typeof media.audioTracks.addEventListener === "function") {
     // Audio tracks can become available after the metadata event.
     media.audioTracks.addEventListener("addtrack", () => setTimeout(restoreAudioPreference,0));
@@ -807,13 +815,15 @@
   volumePercent = Math.max(0, Math.min(100, Math.round(volumePercent)));
   const applyVolume = () => {
     media.volume = volumePercent / 100;
+    media.muted = mkvAudio && mkvAudio.active() ? true : userMuted;
+    if (mkvAudio) mkvAudio.setVolume(userMuted ? 0 : volumePercent / 100);
     byId("volume").value = String(volumePercent);
-    byId("volumeValue").textContent = (media.muted ? 0 : volumePercent) + "%";
+    byId("volumeValue").textContent = (userMuted ? 0 : volumePercent) + "%";
     updateButtons();
   };
   const showVolumeOverlay = () => {
     const overlay = byId("volumeOverlay");
-    overlay.textContent = "Volume " + (media.muted ? 0 : volumePercent) + "%";
+    overlay.textContent = "Volume " + (userMuted ? 0 : volumePercent) + "%";
     overlay.classList.add("visible");
     clearTimeout(volumeOverlayTimer);
     volumeOverlayTimer = setTimeout(() => overlay.classList.remove("visible"), 950);
@@ -822,7 +832,7 @@
     const next = Math.max(0, Math.min(100, Math.round(Number(percent))));
     if (!Number.isFinite(next)) return;
     volumePercent = next;
-    media.muted = false;
+    userMuted = false;
     applyVolume();
     write(store.volume, volumePercent);
     showVolumeOverlay();
@@ -836,7 +846,7 @@
   applyVolume();
   byId("volume").addEventListener("input", event => setVolume(event.target.value));
   byId("mute").addEventListener("click", () => {
-    media.muted = !media.muted;
+    userMuted = !userMuted;
     applyVolume();
     showVolumeOverlay();
   });
@@ -954,7 +964,46 @@
     catch (_) { return []; }
   };
   const audioApi = window.DKAudioTracks;
+  mkvAudio = window.DKMkvAudio ? window.DKMkvAudio.create({
+    media, isMuted: () => userMuted,
+    onError: err => {
+      applyVolume();
+      status("MKV audio decoding stopped: " +
+        (err && err.message ? err.message : "Unsupported codec"));
+    }
+  }) : null;
   const audioTracks = () => audioApi ? audioApi.nativeTracks(media) : [];
+  const chooseEmbeddedAudio = async (item,track,remember = true) => {
+    if (!item || !item.file || !mkvAudio || !mkvAudio.canAttempt(track)) return;
+    if (mkvAudio.selectedNumber() === track.number && current() === item) return;
+    status("Opening embedded MKV audio…");
+    try {
+      const started = await mkvAudio.start(item.file,track);
+      if (!started || current() !== item || state.stopped) return;
+      if (remember) {
+        state.audioPreferences[item.key] = {mode:"mkv",number:track.number};
+        write(store.audioPreferences,state.audioPreferences);
+      }
+      applyVolume();
+      status("MKV audio decoder started: " +
+        (audioApi ? audioApi.labelEmbedded(track) : track.codec),true);
+    } catch (err) {
+      if (current() !== item) return;
+      applyVolume();
+      status("Cannot play this MKV audio track: " +
+        (err && err.message ? err.message : "Unsupported encoding"));
+    }
+  };
+  const restoreOriginalAudio = () => {
+    if (mkvAudio) mkvAudio.stop();
+    const item = current();
+    if (item) {
+      delete state.audioPreferences[item.key];
+      write(store.audioPreferences,state.audioPreferences);
+    }
+    applyVolume();
+    status("Using Chromium's original audio track.",true);
+  };
   const rememberAudioPreference = (item, track, index) => {
     if (!item || !audioApi) return;
     state.audioPreferences[item.key] = audioApi.preferenceFor(track,index);
@@ -966,6 +1015,8 @@
   const selectAudioTrack = (index, remember = true) => {
     if (!audioApi) return false;
     const item = current();
+    if (mkvAudio) mkvAudio.stop();
+    applyVolume();
     const result = audioApi.selectNative(media,index);
     if (!result.ok) {
       if (remember) status(result.reason);
@@ -980,9 +1031,15 @@
   };
   const restoreAudioPreference = () => {
     const item = current(), tracks = audioTracks();
-    if (!item || !audioApi || !tracks.length) return;
+    if (!item || state.stopped) return;
     const saved = state.audioPreferences[item.key];
     if (!saved) return;
+    if (saved.mode === "mkv") {
+      const track = (item.embeddedAudio || []).find(t => t.number === saved.number);
+      if (track && mkvAudio) void chooseEmbeddedAudio(item,track,false);
+      return;
+    }
+    if (!audioApi || !tracks.length) return;
     const target = audioApi.preferredIndex(tracks,saved);
     if (target >= 0 && !tracks[target].enabled)
       selectAudioTrack(target,false);
@@ -1044,6 +1101,8 @@
     addMenuItem("＋ Load SRT / VTT…", () => byId("subtitlePicker").click());
 
     addMenuHeading("Audio tracks");
+    if (mkvAudio && mkvAudio.selectedNumber() !== null)
+      addMenuItem("Use original Chromium audio",restoreOriginalAudio);
     const audios = audioTracks();
     if (audios.length) {
       addMenuSubheading("Browser audio tracks");
@@ -1056,11 +1115,16 @@
     }
     if (item && item.mkvInspection !== "not-mkv") {
       if (item.embeddedAudio && item.embeddedAudio.length) {
-        addMenuSubheading("Detected MKV audio (information only)");
-        item.embeddedAudio.forEach(track => addMenuItem(
-          audioApi ? audioApi.labelEmbedded(track) : (track.name || track.language || track.codec),
-          () => {}, {disabled:true,
-            reason:"MKV metadata alone cannot switch audio; use browser-exposed audio tracks above."}));
+        addMenuSubheading("Embedded MKV audio · WebCodecs");
+        item.embeddedAudio.forEach(track => {
+          const possible = !!(mkvAudio && mkvAudio.canAttempt(track));
+          addMenuItem(audioApi ? audioApi.labelEmbedded(track) :
+            (track.name || track.language || track.codec),
+            () => { if (possible) void chooseEmbeddedAudio(item,track); },
+            {checked:possible ? mkvAudio.selectedNumber() === track.number : undefined,
+              disabled:!possible,
+              reason:"This track needs a Chromium WebCodecs decoder not yet included."});
+        });
       } else if (item.mkvInspection === "pending") {
         addMenuItem("Checking MKV audio tracks…", () => {}, {disabled:true});
       }
@@ -1210,6 +1274,7 @@
   });
   window.addEventListener("pagehide", () => {
     cancelVideoClick();
+    if (mkvAudio) mkvAudio.stop();
     clearTimeout(hideControlsTimer);
     clearTimeout(cursorIdleTimer);
     rememberPosition();

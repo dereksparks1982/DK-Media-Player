@@ -63,8 +63,13 @@ exposes audio-track controls, the **Audio tracks** menu also switches between
 those tracks and remembers the chosen track for that local file. For MKV files,
 it shows codec, language, channels, and sample rate from the file header,
 but metadata-only tracks are disabled so they cannot be mistaken for switchable
-audio. Full MKV audio-track switching remains future work where Chromium does
-not provide a usable native track-selection API.
+audio. An optional **Chromium WebCodecs audio path** now attempts genuine local MKV
+AAC/Opus demuxing and decoding when native track switching is unavailable.
+Select a compatible embedded MKV audio track from the context menu, or return
+to original Chromium audio. The fallback uses WebAudio output synchronized to
+the video clock, with pause, seek, rate-change and file-switch handling.
+Availability depends on Chromium's codec support and cannot be confirmed until
+runtime testing on the Surface Pro; other MKV codecs remain unsupported.
 
 The picture-in-picture and fullscreen controls use matching SVG icons with
 the same 36-pixel hit area and vertically centered alignment.
@@ -224,20 +229,29 @@ access remain separate future work.
 
 ### MKV audio tracks
 
-The local `docs/mkv-tracks.js` inspector now reads MKV audio descriptions
-alongside subtitle descriptions. `docs/audio-tracks.js` provides track
-selection **only when the browser exposes working native audio-track controls**.
-Right-click the video and open **Audio tracks** to select a browser track.
-Selections are remembered per local file without uploading the file or
-changing codec settings. When Chromium does not expose that API, MKV audio
-descriptions are marked **information only** and are not clickable. This does
-**not** demux MKV audio or add AAC/AC3/DTS/other decoders.
+The local MKV inspector identifies embedded audio track numbers, language,
+codec, channels, rate and other metadata. Chromium-native audioTracks remain
+supported when available. The new \`docs/mkv-audio.js\` supplies a separate,
+opt-in, entirely local **WebCodecs + WebAudio** audio path for supported
+Matroska AAC and Opus tracks. It reads user-selected File slices and demuxes
+SimpleBlock/BlockGroup audio, including Xiph, fixed and EBML lacing. It does
+not require a download or external audio service.
 
-The media player now retains the selected local `File` object for the current
-playlist item so the existing MKV text and PGS subtitle readers can access
-its bytes when you select an embedded subtitle track. All extraction stays
-local to your browser. Source-only fixtures have been added for MKV audio
-descriptors and browser audio selection; they have not been executed.
+To select an embedded MKV track, right-click the video and expand Audio
+tracks. If WebCodecs is unavailable, unsupported codecs remain disabled.
+Use "Use original Chromium audio" to return to the default playback path.
+The fallback follows the video's clock for pause, resume, speed and seeking,
+and closes decoders/contexts when changing or stopping files. Native video
+decoding remains untouched.
+
+**Source-only, untested:** WebCodecs codec support, seeking through very large
+files, audio latency and synchronization must be verified after Chromium is
+available on the Surface Pro. The fallback is **not** a general-purpose
+Matroska/codec engine. AC-3, DTS, TrueHD, FLAC, Vorbis and unrecognized codecs
+still need further decoder integration. DRM is not bypassed; playback may
+fail on unsupported AAC/Opus profiles. Original audio playback remains
+available if fallback decoding fails.
+
 
 ## DK NetNav and Chromium
 
