@@ -20,6 +20,10 @@ The repository also contains preserved legacy **DK Media v0.1.11** desktop-era s
 
 The old Python/Tkinter/libVLC code and its former yt-dlp/P2P modules remain untouched for preservation. Current web-player development targets local files only: no downloading, media server, saved streaming links or direct URL entry. yt-dlp belongs to the separate DK Browser project.
 
+## November 17, 2026: queue and playback control sizing
+
+The Up Next queue uses taller items and taller artwork with **no increase in sidebar or thumbnail width**. Previous/Next are visually enlarged, while Play/Pause, Stop and 10-second skip buttons share the same-sized transport-button boxes (Play/Pause remains red). These changes are in web source; no browser/automated validation has been performed yet.
+
 ## Web player
 
 The Russian interface displays **Cyrillic-only text**, including provider names

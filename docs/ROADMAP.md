@@ -16,6 +16,11 @@
 - Cyrillic-only Russian interface.
 - Outward-facing Kinehall name in both languages, browser tabs, GitHub Pages, home-screen manifests and desktop launchers; original icon and legacy internal file/state identifiers are unchanged.
 
+## November 17, 2026: queue and transport sizing (source changes)
+- Up Next keeps the existing sidebar width and image width. Queue rows and thumbnail height are approximately doubled so artwork has visual weight comparable to video recommendation lists. Maintain video aspect handling, scrollability, selected-item red border and remove buttons.
+- Previous and Next icons are enlarged, and all six transport buttons have matching square hit areas. Play/Pause retains the red background but not its former oversized dimensions.
+- CSS source updated; no Chromium browser run or automated tests performed for this visual adjustment. Do not mark runtime validation complete.
+
 ## Next major feature: format compatibility
 - Research and implement an optional client-side decoder/demuxer fallback for media that the host browser cannot play, potentially using a licensed WebAssembly-based codec engine.
 - Preserve Chromium's native playback for supported files, and make decoding limitations and resource costs clear.
